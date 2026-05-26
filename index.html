@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PulseX — Know Your Body</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@300;400;500&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<style>
+:root {
+  --black: #050507;
+  --black2: #0a0a0f;
+  --white: #f0f0f0;
+  --accent: #00ff88;
+  --accent2: #ff3366;
+  --muted: #555560;
+  --border: rgba(255,255,255,0.06);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: auto; }
+
+body {
+  background: var(--black);
+  color: var(--white);
+  font-family: 'Barlow', sans-serif;
+  overflow-x: hidden;
+  cursor: none;
+}
+
+/* CURSOR */
+.cur { position: fixed; z-index: 9999; pointer-events: none; mix-blend-mode: difference; }
+.cur-dot { width: 8px; height: 8px; background: #fff; border-radius: 50%; transform: translate(-50%,-50%); }
+.cur-ring {
+  width: 40px; height: 40px;
+  border: 1px solid rgba(255,255,255,0.5);
+  border-radius: 50%;
+  transform: translate(-50%,-50%);
+  transition: width .3s, height .3s, border-color .3s;
+}
+
+/* NAV */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 1.5rem 3rem;
+  mix-blend-mode: difference;
+}
+.nav-logo {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900; font-size: 1.4rem;
+  letter-spacing: 0.05em; color: #fff;
+}
+.nav-logo span { color: var(--accent); }
+.nav-links { display: flex; gap: 2.5rem; list-style: none; }
+.nav-links a {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem; color: rgba(255,255,255,0.6);
+  text-decoration: none; letter-spacing: 0.12em;
+  text-transform: uppercase; transition: color .2s;
+}
+.nav-links a:hover { color: #fff; }
+.nav-cta {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700; font-size: 0.85rem;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--black); background: #fff;
+  padding: 0.6rem 1.5rem; text-decoration: none;
+  transition: background .2s;
+}
+.nav-cta:hover { background: var(--accent); }
+
+/* HERO */
+#hero {
+  position: relative;
+  height: 100vh; min-height: 700px;
+  display: flex; flex-direction: column;
+  justify-content: center; overflow: hidden;
+}
+
+.hero-bg-text {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900;
+  font-size: clamp(120px, 22vw, 260px);
+  line-height: 0.85;
+  letter-spacing: -0.03em;
+  text-align: center;
+  color: #fff;
+  width: 100%;
+  user-select: none;
+  z-index: 1;
+}
+
+.hero-bg-text .line-top { display: block; }
+.hero-bg-text .line-bot { display: block; color: transparent; -webkit-text-stroke: 1px rgba(255,255,255,0.15); }
+
+/* El anillo SVG entre las dos lineas */
+.ring-container {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  width: clamp(200px, 28vw, 380px);
+  height: clamp(200px, 28vw, 380px);
+}
+
+.ring-svg {
+  width: 100%; height: 100%;
+  filter: drop-shadow(0 0 60px rgba(0,255,136,0.3)) drop-shadow(0 0 120px rgba(0,255,136,0.15));
+}
+
+/* Glow pulse */
+@keyframes glowPulse {
+  0%, 100% { filter: drop-shadow(0 0 40px rgba(0,255,136,0.3)) drop-shadow(0 0 80px rgba(0,255,136,0.1)); }
+  50% { filter: drop-shadow(0 0 80px rgba(0,255,136,0.5)) drop-shadow(0 0 160px rgba(0,255,136,0.25)); }
+}
+.ring-svg { animation: glowPulse 3s ease-in-out infinite; }
+
+/* HERO INFO */
+.hero-info {
+  position: absolute;
+  bottom: 3rem; left: 3rem;
+  z-index: 10;
+}
+.hero-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem; color: var(--accent);
+  letter-spacing: 0.2em; text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+.hero-desc {
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.9rem; color: rgba(255,255,255,0.5);
+  font-weight: 300; max-width: 280px; line-height: 1.6;
+}
+
+.hero-price {
+  position: absolute;
+  bottom: 3rem; right: 3rem;
+  z-index: 10; text-align: right;
+}
+.price-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem; color: var(--muted);
+  letter-spacing: 0.15em; text-transform: uppercase;
+  margin-bottom: 0.25rem;
+}
+.price-val {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900; font-size: 2.5rem;
+  letter-spacing: -0.02em;
+}
+.price-val span { color: var(--accent); }
+
+.scroll-hint {
+  position: absolute;
+  bottom: 3rem; left: 50%; transform: translateX(-50%);
+  z-index: 10;
+  display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+}
+.scroll-hint-line {
+  width: 1px; height: 60px;
+  background: linear-gradient(to bottom, var(--accent), transparent);
+  animation: scrollLine 2s ease-in-out infinite;
+}
+@keyframes scrollLine {
+  0% { transform: scaleY(0); transform-origin: top; }
+  50% { transform: scaleY(1); transform-origin: top; }
+  51% { transform: scaleY(1); transform-origin: bottom; }
+  100% { transform: scaleY(0); transform-origin: bottom; }
+}
+.scroll-hint-text {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem; color: var(--muted);
+  letter-spacing: 0.2em; text-transform: uppercase;
+  writing-mode: vertical-rl;
+}
+
+/* MARQUEE */
+.marquee-wrap {
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  overflow: hidden; padding: 1.2rem 0;
+  background: var(--black2);
+}
+.marquee-track {
+  display: flex; gap: 4rem;
+  animation: marquee 20s linear infinite;
+  white-space: nowrap;
+}
+.marquee-item {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700; font-size: 0.85rem;
+  letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--muted); flex-shrink: 0;
+  display: flex; align-items: center; gap: 1rem;
+}
+.marquee-item .dot { width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+/* INTRO SECTION */
+#intro {
+  padding: 10rem 3rem;
+  max-width: 1400px; margin: 0 auto;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6rem;
+  align-items: center;
+}
+
+.intro-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem; color: var(--accent);
+  letter-spacing: 0.2em; text-transform: uppercase;
+  margin-bottom: 2rem;
+  display: flex; align-items: center; gap: 1rem;
+}
+.intro-label::before { content: '01'; color: var(--muted); }
+
+.intro-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900; font-size: clamp(3rem, 6vw, 6rem);
+  line-height: 0.9; letter-spacing: -0.02em;
+  margin-bottom: 2.5rem;
+}
+.intro-title em { font-style: normal; color: var(--accent); }
+
+.intro-body {
+  font-size: 1rem; color: rgba(255,255,255,0.5);
+  font-weight: 300; line-height: 1.9; max-width: 480px;
+}
+.intro-body strong { color: rgba(255,255,255,0.85); font-weight: 400; }
+
+.intro-stats {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
+  background: var(--border); border: 1px solid var(--border);
+}
+.stat-box {
+  background: var(--black2);
+  padding: 2.5rem 2rem;
+  transition: background .3s;
+}
+.stat-box:hover { background: #111118; }
+.stat-num {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900; font-size: 3.5rem;
+  line-height: 1; letter-spacing: -0.03em;
+  margin-bottom: 0.5rem;
+}
+.stat-num.green { color: var(--accent); }
+.stat-num.red { color: var(--accent2); }
+.stat-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem; color: var(--muted);
+  letter-spacing: 0.1em; text-transform: uppercase;
+  line-height: 1.5;
+}
+
+/* FEATURES */
+#features {
+  padding: 0 3rem 10rem;
+  max-width: 1400px; margin: 0 auto;
+}
+
+.features-header {
+  display: flex; justify-content: space-between; align-items: flex-end;
+  margin-bottom: 4rem;
+  border-top: 1px solid var(--border); padding-top: 3rem;
+}
+
+.features-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900; font-size: clamp(2.5rem, 5vw, 5rem);
+  line-height: 0.9; letter-spacing: -0.02em;
+}
+
+.features-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem; color: var(--muted);
+  letter-spacing: 0.1em;
+}
+
+.features-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
+  background: var(--border);
+}
+
+.feature-item {
+  background: var(--black);
+  padding: 3rem 2.5rem;
+  border-bottom: 1px solid var(--border);
+  transition: background .4s;
+  position: relative; overflow: hidden;
+}
+.feature-item::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: var(--accent);
+  transform: scaleX(0); transform-origin: left;
+  transition: transform .4s ease;
+}
+.feature-item:hover { background: #0a0a10; }
+.feature-item:hover::before { transform: scaleX(1); }
+
+.feature-icon {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900; font-size: 3rem;
+  color: rgba(255,255,255,0.06);
+  margin-bottom: 1.5rem; line-height: 1;
+  transition: color .4s;
+}
+.feature-item:hover .feature-icon { color: rgba(0,255,136,0.15); }
+
+.feature-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700; font-size: 1.4rem;
+  letter-spacing: 0.02em; margin-bottom: 0.75rem;
+  text-transform: uppercase;
+}
+
+.feature-desc {
+  font-size: 0.85rem; color: rgba(255,255,255,0.4);
+  font-weight: 300; line-height: 1.8;
+}
+
+/* SPECS SECTION */
+#specs {
+  background: var(--black2);
+  padding: 8rem 3rem;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.specs-inner {
+  max-width: 1400px; margin: 0 auto;
+  display: grid; grid-template-columns: 1fr 1.2fr; gap: 8rem;
+  align-items: center;
+}
+
+.specs-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem; color: var(--accent);
+  letter-spacing: 0.2em; text-transform: uppercase;
+  margin-bottom: 2rem;
+}
+
+.specs-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900; font-size: clamp(2.5rem, 4vw, 4.5rem);
+  line-height: 0.95; letter-spacing: -0.02em;
+  margin-bottom: 3rem;
+}
+
+.spec-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 1.25rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.spec-key {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem; color: var(--muted);
+  letter-spacing: 0.1em; text-transform: uppercase;
+}
+.spec-val {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700; font-size: 1.1rem;
+  letter-spacing: 0.02em;
+}
+.spec-val.accent { color: var(--accent); }
+
+/* Ring visual grande */
+.ring-showcase {
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+}
+.ring-showcase-svg {
+  width: 100%; max-width: 400px;
+  filter: drop-shadow(0 0 80px rgba(0,255,136,0.25));
+}
+
+/* PRICING */
+#pricing {
+  padding: 8rem 3rem;
+  max-width: 1400px; margin: 0 auto;
+}
+
+.pricing-header {
+  text-align: center; margin-bottom: 5rem;
+}
+.pricing-eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem; color: var(--accent);
+  letter-spacing: 0.2em; text-transform: uppercase;
+  margin-bottom: 1.5rem;
+}
+.pricing-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900; font-size: clamp(3rem, 6vw, 6rem);
+  line-height: 0.9; letter-spacing: -0.03em;
+}
+
+.pricing-grid {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px;
+  background: var(--border);
+}
+
+.price-card {
+  background: var(--black);
+  padding: 3rem 2.5rem;
+  position: relative; transition: background .3s;
+}
+.price-card:hover { background: #0d0d14; }
+.price-card.featured {
+  background: #fff; color: var(--black);
+}
+.price-card.featured .plan-name,
+.price-card.featured .plan-desc,
+.price-card.featured .plan-feature { color: rgba(0,0,0,0.6); }
+.price-card.featured .plan-price-val { color: var(--black); }
+.price-card.featured .plan-feature-val { color: var(--black); }
+
+.featured-badge {
+  position: absolute; top: -1px; left: 50%; transform: translateX(-50%);
+  background: var(--accent); color: var(--black);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700; font-size: 0.7rem;
+  letter-spacing: 0.15em; text-transform: uppercase;
+  padding: 0.3rem 1rem;
+}
+
+.plan-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem; letter-spacing: 0.15em;
+  text-transform: uppercase; color: var(--muted);
+  margin-bottom: 2rem;
+}
+
+.plan-price {
+  margin-bottom: 2.5rem;
+  padding-bottom: 2.5rem;
+  border-bottom: 1px solid var(--border);
+}
+.price-card.featured .plan-price { border-color: rgba(0,0,0,0.1); }
+
+.plan-price-val {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900; font-size: 4rem;
+  line-height: 1; letter-spacing: -0.03em;
+}
+.plan-price-val sup { font-size: 1.5rem; vertical-align: top; margin-top: 0.5rem; }
+.plan-desc { font-size: 0.8rem; color: var(--muted); margin-top: 0.5rem; font-weight: 300; }
+
+.plan-features { list-style: none; margin-bottom: 2.5rem; }
+.plan-feature {
+  font-size: 0.85rem; color: rgba(255,255,255,0.4);
+  padding: 0.6rem 0; display: flex; align-items: center; gap: 0.75rem;
+  border-bottom: 1px solid var(--border);
+  font-weight: 300;
+}
+.price-card.featured .plan-feature { border-color: rgba(0,0,0,0.08); }
+.plan-feature-val { color: var(--white); font-weight: 400; }
+.plan-feature::before { content: '→'; color: var(--accent); font-size: 0.75rem; flex-shrink: 0; }
+.price-card.featured .plan-feature::before { color: var(--black); }
+
+.plan-btn {
+  display: block; text-align: center;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700; font-size: 0.9rem;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 1rem; text-decoration: none;
+  transition: background .2s, color .2s;
+  border: 1px solid var(--border);
+  color: var(--white);
+}
+.plan-btn:hover { background: var(--white); color: var(--black); border-color: var(--white); }
+.price-card.featured .plan-btn {
+  background: var(--black); color: var(--white); border-color: var(--black);
+}
+.price-card.featured .plan-btn:hover { background: var(--accent); border-color: var(--accent); color: var(--black); }
+
+/* CTA FINAL */
+#cta {
+  position: relative; overflow: hidden;
+  border-top: 1px solid var(--border);
+}
+
+.cta-inner {
+  padding: 10rem 3rem;
+  max-width: 1400px; margin: 0 auto;
+  display: flex; flex-direction: column;
+  align-items: center; text-align: center;
+  position: relative; z-index: 1;
+}
+
+.cta-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900; font-size: clamp(4rem, 10vw, 12rem);
+  line-height: 0.85; letter-spacing: -0.04em;
+  margin-bottom: 3rem;
+}
+.cta-title .outline { color: transparent; -webkit-text-stroke: 1px rgba(255,255,255,0.2); }
+.cta-title .solid { color: var(--white); }
+
+.cta-sub {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem; color: var(--muted);
+  letter-spacing: 0.1em; margin-bottom: 3rem;
+  font-weight: 300;
+}
+
+.cta-btn {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900; font-size: 1.1rem;
+  letter-spacing: 0.15em; text-transform: uppercase;
+  background: var(--accent); color: var(--black);
+  padding: 1.2rem 3.5rem; text-decoration: none;
+  transition: transform .2s, box-shadow .2s;
+  display: inline-flex; align-items: center; gap: 1rem;
+}
+.cta-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 20px 60px rgba(0,255,136,0.3);
+}
+
+/* CTA BG text */
+.cta-bg-text {
+  position: absolute; bottom: -2rem; left: 50%; transform: translateX(-50%);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900; font-size: clamp(80px, 15vw, 200px);
+  white-space: nowrap; color: transparent;
+  -webkit-text-stroke: 1px rgba(255,255,255,0.04);
+  letter-spacing: -0.03em; user-select: none; z-index: 0;
+}
+
+/* FOOTER */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 2rem 3rem;
+  display: flex; justify-content: space-between; align-items: center;
+  max-width: 100%;
+}
+.foot-logo {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900; font-size: 1.1rem; letter-spacing: 0.05em;
+}
+.foot-logo span { color: var(--accent); }
+.foot-links { display: flex; gap: 2rem; list-style: none; }
+.foot-links a {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem; color: var(--muted);
+  text-decoration: none; letter-spacing: 0.1em; text-transform: uppercase;
+}
+.foot-links a:hover { color: var(--white); }
+.foot-copy {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem; color: var(--muted);
+}
+
+/* SCROLL REVEAL */
+.sr { opacity: 0; transform: translateY(40px); }
+
+/* MOBILE */
+@media (max-width: 768px) {
+  body { cursor: auto; }
+  .cur { display: none; }
+  nav { padding: 1.2rem 1.5rem; }
+  .nav-links { display: none; }
+  #hero { height: 100svh; }
+  .hero-bg-text { font-size: clamp(70px, 18vw, 120px); }
+  .ring-container { width: 55vw; height: 55vw; }
+  .hero-info { left: 1.5rem; bottom: 6rem; }
+  .hero-price { right: 1.5rem; bottom: 6rem; }
+  #intro { grid-template-columns: 1fr; gap: 3rem; padding: 5rem 1.5rem; }
+  .intro-stats { grid-template-columns: 1fr 1fr; }
+  #features { padding: 0 1.5rem 5rem; }
+  .features-grid { grid-template-columns: 1fr; }
+  .specs-inner { grid-template-columns: 1fr; gap: 3rem; padding: 0; }
+  #specs { padding: 5rem 1.5rem; }
+  .ring-showcase { order: -1; }
+  .ring-showcase-svg { max-width: 250px; }
+  .pricing-grid { grid-template-columns: 1fr; }
+  #pricing { padding: 5rem 1.5rem; }
+  .cta-title { font-size: clamp(3rem, 12vw, 6rem); }
+  footer { flex-direction: column; gap: 1rem; text-align: center; padding: 2rem 1.5rem; }
+  .foot-links { flex-wrap: wrap; justify-content: center; }
+}
+</style>
+</head>
+<body>
+
+<div class="cur" id="cur-dot-el"><div class="cur-dot"></div></div>
+<div class="cur" id="cur-ring-el"><div class="cur-ring" id="cur-ring"></div></div>
+
+<nav>
+  <div class="nav-logo">PULSE<span>X</span></div>
+  <ul class="nav-links">
+    <li><a href="#intro">Product</a></li>
+    <li><a href="#features">Features</a></li>
+    <li><a href="#specs">Specs</a></li>
+    <li><a href="#pricing">Pricing</a></li>
+  </ul>
+  <a href="#pricing" class="nav-cta">Order Now</a>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="hero-bg-text" id="hero-text">
+    <span class="line-top" id="line-top">PULSE</span>
+    <span class="line-bot" id="line-bot">X</span>
+  </div>
+
+  <div class="ring-container" id="ring-wrap">
+    <svg class="ring-svg" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="ringGrad" cx="40%" cy="35%" r="65%">
+          <stop offset="0%" stop-color="#2a2a3a"/>
+          <stop offset="40%" stop-color="#111118"/>
+          <stop offset="100%" stop-color="#050508"/>
+        </radialGradient>
+        <radialGradient id="glowGrad" cx="40%" cy="35%" r="60%">
+          <stop offset="0%" stop-color="#00ff88" stop-opacity="0.15"/>
+          <stop offset="100%" stop-color="#00ff88" stop-opacity="0"/>
+        </radialGradient>
+        <linearGradient id="edgeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#444455"/>
+          <stop offset="30%" stop-color="#00ff88" stop-opacity="0.6"/>
+          <stop offset="60%" stop-color="#222230"/>
+          <stop offset="100%" stop-color="#333345"/>
+        </linearGradient>
+        <filter id="innerShadow">
+          <feGaussianBlur stdDeviation="8" result="blur"/>
+          <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+        </filter>
+      </defs>
+      <!-- Sombra exterior -->
+      <ellipse cx="200" cy="210" rx="140" ry="30" fill="rgba(0,0,0,0.5)" filter="url(#innerShadow)"/>
+      <!-- Cuerpo principal del anillo -->
+      <circle cx="200" cy="195" r="138" fill="url(#ringGrad)" stroke="url(#edgeGrad)" stroke-width="1.5"/>
+      <!-- Agujero interior -->
+      <circle cx="200" cy="195" r="90" fill="#050507"/>
+      <!-- Glow interior -->
+      <circle cx="200" cy="195" r="90" fill="none" stroke="#00ff88" stroke-width="0.5" opacity="0.3"/>
+      <!-- Reflejo superior -->
+      <ellipse cx="175" cy="140" rx="55" ry="20" fill="white" opacity="0.04" transform="rotate(-20 175 140)"/>
+      <!-- Sensor LED simulado -->
+      <circle cx="200" cy="290" r="8" fill="#00ff88" opacity="0.6"/>
+      <circle cx="200" cy="290" r="5" fill="#00ff88" opacity="0.9"/>
+      <circle cx="200" cy="290" r="3" fill="#aaffdd"/>
+      <!-- Indicadores laterales -->
+      <circle cx="200" cy="100" r="3" fill="rgba(0,255,136,0.4)"/>
+      <rect x="185" y="97" width="30" height="1" fill="rgba(0,255,136,0.2)" rx="0.5"/>
+      <!-- Texto grabado -->
+      <text x="200" y="202" text-anchor="middle" fill="rgba(255,255,255,0.06)"
+        font-family="'Barlow Condensed', sans-serif" font-weight="900" font-size="18" letter-spacing="4">PULSEX</text>
+      <!-- Rim highlight -->
+      <circle cx="200" cy="195" r="138" fill="none" stroke="white" stroke-width="0.5" opacity="0.05"/>
+    </svg>
+  </div>
+
+  <div class="hero-info">
+    <div class="hero-tag">● Smart Ring · Gen 1</div>
+    <p class="hero-desc">Your body generates data 24/7. PulseX is the first ring built to understand it.</p>
+  </div>
+
+  <div class="hero-price">
+    <div class="price-label">Starting at</div>
+    <div class="price-val"><span>€</span>299</div>
+  </div>
+
+  <div class="scroll-hint">
+    <div class="scroll-hint-line"></div>
+    <span class="scroll-hint-text">scroll</span>
+  </div>
+</section>
+
+<!-- MARQUEE -->
+<div class="marquee-wrap">
+  <div class="marquee-track">
+    <div class="marquee-item"><span class="dot"></span> Heart Rate 24/7</div>
+    <div class="marquee-item"><span class="dot"></span> Hydration Index</div>
+    <div class="marquee-item"><span class="dot"></span> Slope Detection</div>
+    <div class="marquee-item"><span class="dot"></span> Sleep Quality</div>
+    <div class="marquee-item"><span class="dot"></span> Recovery Score</div>
+    <div class="marquee-item"><span class="dot"></span> 7-Day Battery</div>
+    <div class="marquee-item"><span class="dot"></span> IP68 Waterproof</div>
+    <div class="marquee-item"><span class="dot"></span> AI Coaching</div>
+    <div class="marquee-item"><span class="dot"></span> Heart Rate 24/7</div>
+    <div class="marquee-item"><span class="dot"></span> Hydration Index</div>
+    <div class="marquee-item"><span class="dot"></span> Slope Detection</div>
+    <div class="marquee-item"><span class="dot"></span> Sleep Quality</div>
+    <div class="marquee-item"><span class="dot"></span> Recovery Score</div>
+    <div class="marquee-item"><span class="dot"></span> 7-Day Battery</div>
+    <div class="marquee-item"><span class="dot"></span> IP68 Waterproof</div>
+    <div class="marquee-item"><span class="dot"></span> AI Coaching</div>
+  </div>
+</div>
+
+<!-- INTRO -->
+<section id="intro">
+  <div>
+    <div class="intro-label sr">What is PulseX</div>
+    <h2 class="intro-title sr">The ring that<br>reads your<br><em>biology.</em></h2>
+    <p class="intro-body sr">
+      Most wearables tell you how many steps you've taken. PulseX tells you <strong>what's actually happening inside your body</strong> — hydration levels, real-time effort during hill climbs, sleep architecture, and recovery readiness before you even get out of bed.
+      <br><br>
+      Worn on your finger. Invisible to the world. <strong>Loud in your data.</strong>
+    </p>
+  </div>
+  <div class="intro-stats sr">
+    <div class="stat-box">
+      <div class="stat-num green">7</div>
+      <div class="stat-label">Days battery<br>on single charge</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-num">12</div>
+      <div class="stat-label">Biometric<br>sensors</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-num red">98%</div>
+      <div class="stat-label">Heart rate<br>accuracy</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-num green">IP68</div>
+      <div class="stat-label">Waterproof<br>rating</div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="features-header">
+    <h2 class="features-title sr">What it<br>measures.</h2>
+    <span class="features-num sr">06 features</span>
+  </div>
+  <div class="features-grid">
+    <div class="feature-item sr">
+      <div class="feature-icon">♥</div>
+      <div class="feature-title">Heart Rate 24/7</div>
+      <p class="feature-desc">Continuous optical PPG monitoring. Detects anomalies and sends alerts directly to your phone. Clinical-grade accuracy.</p>
+    </div>
+    <div class="feature-item sr">
+      <div class="feature-icon">◈</div>
+      <div class="feature-title">Hydration Index</div>
+      <p class="feature-desc">Our proprietary bioimpedance algorithm estimates cellular hydration in real time. No more guessing how much water you need.</p>
+    </div>
+    <div class="feature-item sr">
+      <div class="feature-icon">▲</div>
+      <div class="feature-title">Slope Detection</div>
+      <p class="feature-desc">Accelerometer + barometric pressure fusion. Knows when you're climbing and adjusts effort scoring accordingly. Built for trail runners and hikers.</p>
+    </div>
+    <div class="feature-item sr">
+      <div class="feature-icon">◐</div>
+      <div class="feature-title">Sleep Architecture</div>
+      <p class="feature-desc">Maps REM, deep, and light sleep cycles throughout the night. Generates a recovery score every morning so you know how hard you can push.</p>
+    </div>
+    <div class="feature-item sr">
+      <div class="feature-icon">⬡</div>
+      <div class="feature-title">AI Coaching</div>
+      <p class="feature-desc">PulseX learns your baseline over 14 days. Then it gives you personalized daily recommendations based on your real biometric patterns.</p>
+    </div>
+    <div class="feature-item sr">
+      <div class="feature-icon">↯</div>
+      <div class="feature-title">Recovery Score</div>
+      <p class="feature-desc">HRV, resting HR, skin temperature, and sleep quality combined into one daily score. Know before you train whether to push or rest.</p>
+    </div>
+  </div>
+</section>
+
+<!-- SPECS -->
+<section id="specs">
+  <div class="specs-inner">
+    <div>
+      <div class="specs-label sr">Technical specifications</div>
+      <h2 class="specs-title sr">Built different.<br>Down to the<br>material.</h2>
+      <div>
+        <div class="spec-row sr">
+          <span class="spec-key">Material</span>
+          <span class="spec-val">Titanium Grade 5</span>
+        </div>
+        <div class="spec-row sr">
+          <span class="spec-key">Battery</span>
+          <span class="spec-val accent">7 days</span>
+        </div>
+        <div class="spec-row sr">
+          <span class="spec-key">Sensors</span>
+          <span class="spec-val">PPG · SpO2 · Temp · Baro · IMU · BIA</span>
+        </div>
+        <div class="spec-row sr">
+          <span class="spec-key">Water resistance</span>
+          <span class="spec-val accent">IP68 · 100m</span>
+        </div>
+        <div class="spec-row sr">
+          <span class="spec-key">Charging</span>
+          <span class="spec-val">Magnetic · 90 min full</span>
+        </div>
+        <div class="spec-row sr">
+          <span class="spec-key">Connectivity</span>
+          <span class="spec-val">Bluetooth 5.3 LE</span>
+        </div>
+        <div class="spec-row sr">
+          <span class="spec-key">Sizes</span>
+          <span class="spec-val">6 · 7 · 8 · 9 · 10 · 11 · 12</span>
+        </div>
+        <div class="spec-row sr">
+          <span class="spec-key">Weight</span>
+          <span class="spec-val">3.2g</span>
+        </div>
+        <div class="spec-row sr">
+          <span class="spec-key">App</span>
+          <span class="spec-val">iOS · Android</span>
+        </div>
+      </div>
+    </div>
+    <div class="ring-showcase sr">
+      <svg class="ring-showcase-svg" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="rg2" cx="38%" cy="32%" r="70%">
+            <stop offset="0%" stop-color="#303045"/>
+            <stop offset="50%" stop-color="#0d0d1a"/>
+            <stop offset="100%" stop-color="#030305"/>
+          </radialGradient>
+          <linearGradient id="eg2" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#555570"/>
+            <stop offset="25%" stop-color="#00ff88" stop-opacity="0.8"/>
+            <stop offset="55%" stop-color="#1a1a28"/>
+            <stop offset="100%" stop-color="#404055"/>
+          </linearGradient>
+          <radialGradient id="holeGrad" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#0a0a12"/>
+            <stop offset="100%" stop-color="#020204"/>
+          </radialGradient>
+        </defs>
+        <ellipse cx="250" cy="270" rx="170" ry="40" fill="rgba(0,0,0,0.6)" filter="url(#innerShadow)"/>
+        <circle cx="250" cy="240" r="170" fill="url(#rg2)" stroke="url(#eg2)" stroke-width="2"/>
+        <circle cx="250" cy="240" r="110" fill="url(#holeGrad)"/>
+        <circle cx="250" cy="240" r="110" fill="none" stroke="#00ff88" stroke-width="0.8" opacity="0.25"/>
+        <circle cx="250" cy="240" r="170" fill="none" stroke="white" stroke-width="0.5" opacity="0.06"/>
+        <ellipse cx="218" cy="170" rx="65" ry="25" fill="white" opacity="0.05" transform="rotate(-25 218 170)"/>
+        <!-- Sensores -->
+        <circle cx="250" cy="360" r="10" fill="#00ff88" opacity="0.5"/>
+        <circle cx="250" cy="360" r="6" fill="#00ff88" opacity="0.8"/>
+        <circle cx="250" cy="360" r="3" fill="#ccffee"/>
+        <circle cx="225" cy="357" r="4" fill="#00ff88" opacity="0.3"/>
+        <circle cx="275" cy="357" r="4" fill="#00ff88" opacity="0.3"/>
+        <!-- Texto -->
+        <text x="250" y="248" text-anchor="middle" fill="rgba(255,255,255,0.05)"
+          font-family="'Barlow Condensed', sans-serif" font-weight="900" font-size="22" letter-spacing="5">PULSEX</text>
+        <text x="250" y="268" text-anchor="middle" fill="rgba(0,255,136,0.12)"
+          font-family="'JetBrains Mono', monospace" font-size="9" letter-spacing="2">GEN · I</text>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section id="pricing">
+  <div class="pricing-header">
+    <div class="pricing-eyebrow sr">Simple pricing</div>
+    <h2 class="pricing-title sr">Choose your<br>PulseX.</h2>
+  </div>
+  <div class="pricing-grid sr">
+    <div class="price-card">
+      <div class="plan-name">PulseX One</div>
+      <div class="plan-price">
+        <div class="plan-price-val"><sup>€</sup>299</div>
+        <div class="plan-desc">One-time · No subscription</div>
+      </div>
+      <ul class="plan-features">
+        <li class="plan-feature"><span class="plan-feature-val">Heart rate</span> monitoring</li>
+        <li class="plan-feature"><span class="plan-feature-val">Sleep</span> tracking</li>
+        <li class="plan-feature"><span class="plan-feature-val">Step</span> counter</li>
+        <li class="plan-feature"><span class="plan-feature-val">7-day</span> battery</li>
+        <li class="plan-feature"><span class="plan-feature-val">Basic</span> app access</li>
+      </ul>
+      <a href="#" class="plan-btn">Order PulseX One</a>
+    </div>
+    <div class="price-card featured">
+      <div class="featured-badge">Most popular</div>
+      <div class="plan-name">PulseX Pro</div>
+      <div class="plan-price">
+        <div class="plan-price-val"><sup>€</sup>399</div>
+        <div class="plan-desc">One-time · No subscription</div>
+      </div>
+      <ul class="plan-features">
+        <li class="plan-feature"><span class="plan-feature-val">All sensors</span> active</li>
+        <li class="plan-feature"><span class="plan-feature-val">Hydration</span> index</li>
+        <li class="plan-feature"><span class="plan-feature-val">Slope</span> detection</li>
+        <li class="plan-feature"><span class="plan-feature-val">AI</span> coaching</li>
+        <li class="plan-feature"><span class="plan-feature-val">Recovery</span> score</li>
+      </ul>
+      <a href="#" class="plan-btn">Order PulseX Pro</a>
+    </div>
+    <div class="price-card">
+      <div class="plan-name">PulseX Elite</div>
+      <div class="plan-price">
+        <div class="plan-price-val"><sup>€</sup>499</div>
+        <div class="plan-desc">Includes 1yr premium coaching</div>
+      </div>
+      <ul class="plan-features">
+        <li class="plan-feature"><span class="plan-feature-val">Everything</span> in Pro</li>
+        <li class="plan-feature"><span class="plan-feature-val">Priority</span> support</li>
+        <li class="plan-feature"><span class="plan-feature-val">Engraving</span> included</li>
+        <li class="plan-feature"><span class="plan-feature-val">Early</span> feature access</li>
+        <li class="plan-feature"><span class="plan-feature-val">1 year</span> AI premium</li>
+      </ul>
+      <a href="#" class="plan-btn">Order PulseX Elite</a>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section id="cta">
+  <div class="cta-bg-text">PULSEX</div>
+  <div class="cta-inner">
+    <h2 class="cta-title sr">
+      <span class="outline">Know</span><br>
+      <span class="solid">Your</span><br>
+      <span class="outline">Body.</span>
+    </h2>
+    <p class="cta-sub sr">Free shipping worldwide · 30-day returns · 2-year warranty</p>
+    <a href="#pricing" class="cta-btn sr">Get PulseX Now →</a>
+  </div>
+</section>
+
+<footer>
+  <div class="foot-logo">PULSE<span>X</span></div>
+  <ul class="foot-links">
+    <li><a href="#">Product</a></li>
+    <li><a href="#">App</a></li>
+    <li><a href="#">Support</a></li>
+    <li><a href="#">Privacy</a></li>
+  </ul>
+  <span class="foot-copy">© 2025 PulseX. All rights reserved.</span>
+</footer>
+
+<script>
+gsap.registerPlugin(ScrollTrigger);
+
+// CURSOR
+const dotEl = document.getElementById('cur-dot-el');
+const ringEl = document.getElementById('cur-ring-el');
+const ring = document.getElementById('cur-ring');
+let mx=0,my=0,rx=0,ry=0;
+
+document.addEventListener('mousemove', e => {
+  mx = e.clientX; my = e.clientY;
+  dotEl.style.transform = `translate(${mx}px,${my}px)`;
+});
+function animRing(){
+  rx += (mx-rx)*0.1; ry += (my-ry)*0.1;
+  ringEl.style.transform = `translate(${rx}px,${ry}px)`;
+  requestAnimationFrame(animRing);
+}
+animRing();
+
+document.querySelectorAll('a,button').forEach(el=>{
+  el.addEventListener('mouseenter',()=>{ ring.style.width='56px'; ring.style.height='56px'; ring.style.borderColor='rgba(0,255,136,0.6)'; });
+  el.addEventListener('mouseleave',()=>{ ring.style.width='40px'; ring.style.height='40px'; ring.style.borderColor='rgba(255,255,255,0.5)'; });
+});
+
+// HERO PARALLAX — el anillo sube y el texto se separa al hacer scroll
+gsap.to('#ring-wrap', {
+  yPercent: -30,
+  ease: 'none',
+  scrollTrigger: { trigger: '#hero', start: 'top top', end: 'bottom top', scrub: true }
+});
+gsap.to('#line-top', {
+  yPercent: -15,
+  ease: 'none',
+  scrollTrigger: { trigger: '#hero', start: 'top top', end: 'bottom top', scrub: true }
+});
+gsap.to('#line-bot', {
+  yPercent: 15,
+  ease: 'none',
+  scrollTrigger: { trigger: '#hero', start: 'top top', end: 'bottom top', scrub: true }
+});
+
+// SCROLL REVEAL para todos los .sr
+gsap.utils.toArray('.sr').forEach((el, i) => {
+  gsap.fromTo(el,
+    { opacity: 0, y: 50 },
+    {
+      opacity: 1, y: 0,
+      duration: 0.8,
+      ease: 'power3.out',
+      scrollTrigger: {
+        trigger: el,
+        start: 'top 88%',
+        toggleActions: 'play none none none'
+      },
+      delay: (i % 3) * 0.1
+    }
+  );
+});
+
+// HERO entrada inicial
+gsap.from('#hero-text', { opacity: 0, scale: 1.05, duration: 1.2, ease: 'power3.out', delay: 0.2 });
+gsap.from('#ring-wrap', { opacity: 0, scale: 0.85, duration: 1.4, ease: 'power3.out', delay: 0.4 });
+gsap.from('.hero-info', { opacity: 0, x: -30, duration: 0.8, ease: 'power3.out', delay: 0.8 });
+gsap.from('.hero-price', { opacity: 0, x: 30, duration: 0.8, ease: 'power3.out', delay: 0.8 });
+gsap.from('.scroll-hint', { opacity: 0, y: 20, duration: 0.8, ease: 'power3.out', delay: 1.2 });
+</script>
+</body>
+</html>
