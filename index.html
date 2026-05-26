@@ -5,537 +5,483 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PulseX — Know Your Body</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@300;400;500&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700;800;900&family=Barlow:wght@300;400;500&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+
+<!--
+  LIBRERÍAS QUE USAMOS:
+  1. GSAP — la librería de animación más potente del mundo
+  2. ScrollTrigger — plugin de GSAP que conecta animaciones al scroll
+  Vienen de cdnjs, que es un CDN gratuito y de confianza
+-->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+
 <style>
+/*
+  CSS VARIABLES — definimos todos los colores en un solo sitio.
+  Así si quieres cambiar el verde accent solo lo cambias en :root
+  y cambia en toda la web automáticamente.
+*/
 :root {
-  --black: #050507;
-  --black2: #0a0a0f;
-  --white: #f0f0f0;
+  --black: #04040a;
+  --black2: #08080f;
+  --white: #efefef;
   --accent: #00ff88;
-  --accent2: #ff3366;
-  --muted: #555560;
+  --accent-dim: rgba(0,255,136,0.15);
+  --muted: #44444f;
   --border: rgba(255,255,255,0.06);
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: auto; }
 
 body {
   background: var(--black);
   color: var(--white);
   font-family: 'Barlow', sans-serif;
   overflow-x: hidden;
-  cursor: none;
+  /* overflow-y lo deja Lenis gestionar */
 }
 
-/* CURSOR */
-.cur { position: fixed; z-index: 9999; pointer-events: none; mix-blend-mode: difference; }
-.cur-dot { width: 8px; height: 8px; background: #fff; border-radius: 50%; transform: translate(-50%,-50%); }
-.cur-ring {
-  width: 40px; height: 40px;
+/* =============================================
+   CURSOR PERSONALIZADO
+   Dos elementos: punto pequeño (sigue al ratón directo)
+   y anillo grande (sigue con retraso — da sensación premium)
+   mix-blend-mode: difference invierte los colores
+   debajo del cursor, por eso se ve sobre cualquier fondo
+   ============================================= */
+.cursor-dot {
+  position: fixed; top: 0; left: 0;
+  width: 6px; height: 6px;
+  background: #fff; border-radius: 50%;
+  pointer-events: none; z-index: 9999;
+  mix-blend-mode: difference;
+  transform: translate(-50%,-50%);
+}
+.cursor-ring {
+  position: fixed; top: 0; left: 0;
+  width: 36px; height: 36px;
   border: 1px solid rgba(255,255,255,0.5);
   border-radius: 50%;
+  pointer-events: none; z-index: 9998;
+  mix-blend-mode: difference;
   transform: translate(-50%,-50%);
-  transition: width .3s, height .3s, border-color .3s;
+  transition: width .3s, height .3s;
 }
 
-/* NAV */
+/* =============================================
+   NAV — position fixed para que siempre esté visible
+   mix-blend-mode: difference para que se vea
+   sobre cualquier fondo sin necesidad de cambiar color
+   ============================================= */
 nav {
-  position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+  position: fixed; top: 0; left: 0; right: 0;
+  z-index: 500;
   display: flex; justify-content: space-between; align-items: center;
   padding: 1.5rem 3rem;
   mix-blend-mode: difference;
 }
 .nav-logo {
   font-family: 'Barlow Condensed', sans-serif;
-  font-weight: 900; font-size: 1.4rem;
-  letter-spacing: 0.05em; color: #fff;
+  font-weight: 900; font-size: 1.3rem; letter-spacing: 0.08em;
+  color: #fff;
 }
 .nav-logo span { color: var(--accent); }
 .nav-links { display: flex; gap: 2.5rem; list-style: none; }
 .nav-links a {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.7rem; color: rgba(255,255,255,0.6);
-  text-decoration: none; letter-spacing: 0.12em;
-  text-transform: uppercase; transition: color .2s;
+  font-size: 0.68rem; color: rgba(255,255,255,0.55);
+  text-decoration: none; letter-spacing: 0.12em; text-transform: uppercase;
+  transition: color .2s;
 }
 .nav-links a:hover { color: #fff; }
-.nav-cta {
+.nav-order {
   font-family: 'Barlow Condensed', sans-serif;
-  font-weight: 700; font-size: 0.85rem;
-  letter-spacing: 0.1em; text-transform: uppercase;
-  color: var(--black); background: #fff;
-  padding: 0.6rem 1.5rem; text-decoration: none;
+  font-weight: 700; font-size: 0.8rem; letter-spacing: 0.1em;
+  text-transform: uppercase; color: #000; background: #fff;
+  padding: 0.55rem 1.4rem; text-decoration: none;
   transition: background .2s;
 }
-.nav-cta:hover { background: var(--accent); }
+.nav-order:hover { background: var(--accent); }
 
-/* HERO */
+/* =============================================
+   HERO — primera pantalla
+   La idea: fondo negro, nombre enorme, anillo en el centro
+   opacity: 0 inicial porque GSAP lo animará al cargar
+   ============================================= */
 #hero {
-  position: relative;
-  height: 100vh; min-height: 700px;
+  height: 100vh;
   display: flex; flex-direction: column;
-  justify-content: center; overflow: hidden;
-}
-
-.hero-bg-text {
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  font-family: 'Barlow Condensed', sans-serif;
-  font-weight: 900;
-  font-size: clamp(120px, 22vw, 260px);
-  line-height: 0.85;
-  letter-spacing: -0.03em;
+  justify-content: center; align-items: center;
+  position: relative; overflow: hidden;
   text-align: center;
-  color: #fff;
-  width: 100%;
-  user-select: none;
-  z-index: 1;
 }
 
-.hero-bg-text .line-top { display: block; }
-.hero-bg-text .line-bot { display: block; color: transparent; -webkit-text-stroke: 1px rgba(255,255,255,0.15); }
-
-/* El anillo SVG entre las dos lineas */
-.ring-container {
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 2;
-  width: clamp(200px, 28vw, 380px);
-  height: clamp(200px, 28vw, 380px);
-}
-
-.ring-svg {
-  width: 100%; height: 100%;
-  filter: drop-shadow(0 0 60px rgba(0,255,136,0.3)) drop-shadow(0 0 120px rgba(0,255,136,0.15));
-}
-
-/* Glow pulse */
-@keyframes glowPulse {
-  0%, 100% { filter: drop-shadow(0 0 40px rgba(0,255,136,0.3)) drop-shadow(0 0 80px rgba(0,255,136,0.1)); }
-  50% { filter: drop-shadow(0 0 80px rgba(0,255,136,0.5)) drop-shadow(0 0 160px rgba(0,255,136,0.25)); }
-}
-.ring-svg { animation: glowPulse 3s ease-in-out infinite; }
-
-/* HERO INFO */
-.hero-info {
-  position: absolute;
-  bottom: 3rem; left: 3rem;
-  z-index: 10;
-}
-.hero-tag {
+.hero-eyebrow {
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.65rem; color: var(--accent);
-  letter-spacing: 0.2em; text-transform: uppercase;
-  margin-bottom: 0.5rem;
-}
-.hero-desc {
-  font-family: 'Barlow', sans-serif;
-  font-size: 0.9rem; color: rgba(255,255,255,0.5);
-  font-weight: 300; max-width: 280px; line-height: 1.6;
+  letter-spacing: 0.25em; text-transform: uppercase;
+  margin-bottom: 2rem; opacity: 0; /* GSAP lo muestra */
 }
 
-.hero-price {
-  position: absolute;
-  bottom: 3rem; right: 3rem;
-  z-index: 10; text-align: right;
-}
-.price-label {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.65rem; color: var(--muted);
-  letter-spacing: 0.15em; text-transform: uppercase;
-  margin-bottom: 0.25rem;
-}
-.price-val {
+/*
+  TÉCNICA: texto tan grande que ocupa toda la pantalla
+  clamp(min, preferido, max) — se adapta a cualquier pantalla
+  El anillo SVG irá encima con position: absolute
+*/
+.hero-title {
   font-family: 'Barlow Condensed', sans-serif;
-  font-weight: 900; font-size: 2.5rem;
-  letter-spacing: -0.02em;
+  font-weight: 900;
+  font-size: clamp(110px, 20vw, 240px);
+  line-height: 0.82;
+  letter-spacing: -0.03em;
+  position: relative; z-index: 1;
+  opacity: 0; /* GSAP lo muestra */
 }
-.price-val span { color: var(--accent); }
+.hero-title .word-pulse { display: block; color: #fff; }
+.hero-title .word-x {
+  display: block;
+  /* -webkit-text-stroke: texto hueco, solo el borde visible */
+  color: transparent;
+  -webkit-text-stroke: 1.5px rgba(255,255,255,0.2);
+}
 
-.scroll-hint {
+/* El anillo flota encima del texto — z-index mayor */
+.hero-ring-wrap {
   position: absolute;
-  bottom: 3rem; left: 50%; transform: translateX(-50%);
-  z-index: 10;
-  display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
-}
-.scroll-hint-line {
-  width: 1px; height: 60px;
-  background: linear-gradient(to bottom, var(--accent), transparent);
-  animation: scrollLine 2s ease-in-out infinite;
-}
-@keyframes scrollLine {
-  0% { transform: scaleY(0); transform-origin: top; }
-  50% { transform: scaleY(1); transform-origin: top; }
-  51% { transform: scaleY(1); transform-origin: bottom; }
-  100% { transform: scaleY(0); transform-origin: bottom; }
-}
-.scroll-hint-text {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.6rem; color: var(--muted);
-  letter-spacing: 0.2em; text-transform: uppercase;
-  writing-mode: vertical-rl;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2; /* encima del texto */
+  width: clamp(180px, 25vw, 340px);
+  height: clamp(180px, 25vw, 340px);
+  opacity: 0; /* GSAP lo muestra */
 }
 
-/* MARQUEE */
-.marquee-wrap {
+.hero-scroll-hint {
+  position: absolute; bottom: 2.5rem; left: 50%;
+  transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+  opacity: 0;
+}
+.scroll-line {
+  width: 1px; height: 50px;
+  background: linear-gradient(to bottom, var(--accent), transparent);
+  animation: scrollAnim 2s ease-in-out infinite;
+}
+@keyframes scrollAnim {
+  0%   { transform: scaleY(0); transform-origin: top; opacity: 1; }
+  50%  { transform: scaleY(1); transform-origin: top; opacity: 1; }
+  51%  { transform: scaleY(1); transform-origin: bottom; }
+  100% { transform: scaleY(0); transform-origin: bottom; opacity: 0; }
+}
+.scroll-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.55rem; color: var(--muted);
+  letter-spacing: 0.2em; text-transform: uppercase;
+}
+
+/* =============================================
+   ESCENAS DE SCROLL NARRATIVE
+   
+   CONCEPTO CLAVE: cada .scene tiene height: 300vh
+   Esto significa 3 pantallas de scroll "vacío"
+   Ese scroll vacío es el "tiempo" que dura la animación.
+   
+   El .scene-sticky dentro usa position: sticky; top: 0
+   Esto es CSS puro — le dice al navegador:
+   "quédate pegado al top mientras el padre tenga scroll"
+   Es la versión nativa de lo que pin hace en GSAP,
+   pero usamos ambos para mayor control.
+   ============================================= */
+.scene {
+  position: relative;
+  height: 300vh; /* 3x la pantalla = 3 "beats" de animación */
+}
+
+.scene-sticky {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* El anillo permanente que se ve en todas las escenas */
+.scene-ring {
+  position: absolute;
+  width: clamp(260px, 35vw, 480px);
+  height: clamp(260px, 35vw, 480px);
+  z-index: 2;
+}
+
+/*
+  FEATURE CARDS — aparecen al costado del anillo
+  Las posicionamos absolute y las animamos con GSAP
+  Empiezan con opacity:0 y translateX para entrar desde el lado
+*/
+.feature-panel {
+  position: absolute;
+  opacity: 0; /* GSAP las muestra */
+  z-index: 3;
+  max-width: 320px;
+}
+.feature-panel.left  { left: 5%;  text-align: left; }
+.feature-panel.right { right: 5%; text-align: right; }
+
+.feature-number {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900; font-size: 6rem;
+  color: rgba(255,255,255,0.04);
+  line-height: 1; margin-bottom: -1rem;
+}
+.feature-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem; color: var(--accent);
+  letter-spacing: 0.2em; text-transform: uppercase;
+  margin-bottom: 0.75rem;
+}
+.feature-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900;
+  font-size: clamp(2rem, 3.5vw, 3.5rem);
+  line-height: 0.9; letter-spacing: -0.02em;
+  margin-bottom: 1rem;
+}
+.feature-body {
+  font-size: 0.88rem; color: rgba(255,255,255,0.45);
+  font-weight: 300; line-height: 1.9;
+}
+.feature-body strong { color: rgba(255,255,255,0.8); font-weight: 400; }
+
+/* Línea decorativa que conecta el texto al anillo */
+.feature-line {
+  width: 60px; height: 1px;
+  background: var(--accent);
+  margin: 1.25rem 0;
+  opacity: 0; /* GSAP la anima */
+}
+.feature-panel.right .feature-line { margin-left: auto; }
+
+/* Indicador de progreso lateral */
+.progress-dots {
+  position: fixed;
+  right: 2rem; top: 50%;
+  transform: translateY(-50%);
+  display: flex; flex-direction: column; gap: 0.6rem;
+  z-index: 400;
+}
+.pdot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.3);
+  transition: background .3s, border-color .3s, transform .3s;
+  cursor: pointer;
+}
+.pdot.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  transform: scale(1.4);
+}
+
+/* =============================================
+   MARQUEE — banda de texto que se mueve sola
+   Técnica: duplicamos el contenido y animamos
+   con CSS animation translateX(-50%)
+   Al llegar al -50% (la mitad) el loop es invisible
+   porque la segunda copia es idéntica a la primera
+   ============================================= */
+.marquee-band {
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
-  overflow: hidden; padding: 1.2rem 0;
+  overflow: hidden; padding: 1.1rem 0;
   background: var(--black2);
 }
 .marquee-track {
-  display: flex; gap: 4rem;
-  animation: marquee 20s linear infinite;
+  display: flex; gap: 3rem;
+  animation: marqueeAnim 18s linear infinite;
   white-space: nowrap;
 }
 .marquee-item {
   font-family: 'Barlow Condensed', sans-serif;
-  font-weight: 700; font-size: 0.85rem;
+  font-weight: 700; font-size: 0.8rem;
   letter-spacing: 0.2em; text-transform: uppercase;
   color: var(--muted); flex-shrink: 0;
   display: flex; align-items: center; gap: 1rem;
 }
-.marquee-item .dot { width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
-@keyframes marquee {
+.marquee-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
+@keyframes marqueeAnim {
   from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
+  to   { transform: translateX(-50%); } /* -50% porque el contenido está duplicado */
 }
 
-/* INTRO SECTION */
-#intro {
-  padding: 10rem 3rem;
-  max-width: 1400px; margin: 0 auto;
-  display: grid; grid-template-columns: 1fr 1fr; gap: 6rem;
-  align-items: center;
-}
-
-.intro-label {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.65rem; color: var(--accent);
-  letter-spacing: 0.2em; text-transform: uppercase;
-  margin-bottom: 2rem;
-  display: flex; align-items: center; gap: 1rem;
-}
-.intro-label::before { content: '01'; color: var(--muted); }
-
-.intro-title {
-  font-family: 'Barlow Condensed', sans-serif;
-  font-weight: 900; font-size: clamp(3rem, 6vw, 6rem);
-  line-height: 0.9; letter-spacing: -0.02em;
-  margin-bottom: 2.5rem;
-}
-.intro-title em { font-style: normal; color: var(--accent); }
-
-.intro-body {
-  font-size: 1rem; color: rgba(255,255,255,0.5);
-  font-weight: 300; line-height: 1.9; max-width: 480px;
-}
-.intro-body strong { color: rgba(255,255,255,0.85); font-weight: 400; }
-
-.intro-stats {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
-  background: var(--border); border: 1px solid var(--border);
-}
-.stat-box {
-  background: var(--black2);
-  padding: 2.5rem 2rem;
-  transition: background .3s;
-}
-.stat-box:hover { background: #111118; }
-.stat-num {
-  font-family: 'Barlow Condensed', sans-serif;
-  font-weight: 900; font-size: 3.5rem;
-  line-height: 1; letter-spacing: -0.03em;
-  margin-bottom: 0.5rem;
-}
-.stat-num.green { color: var(--accent); }
-.stat-num.red { color: var(--accent2); }
-.stat-label {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.65rem; color: var(--muted);
-  letter-spacing: 0.1em; text-transform: uppercase;
-  line-height: 1.5;
-}
-
-/* FEATURES */
-#features {
-  padding: 0 3rem 10rem;
-  max-width: 1400px; margin: 0 auto;
-}
-
-.features-header {
-  display: flex; justify-content: space-between; align-items: flex-end;
-  margin-bottom: 4rem;
-  border-top: 1px solid var(--border); padding-top: 3rem;
-}
-
-.features-title {
-  font-family: 'Barlow Condensed', sans-serif;
-  font-weight: 900; font-size: clamp(2.5rem, 5vw, 5rem);
-  line-height: 0.9; letter-spacing: -0.02em;
-}
-
-.features-num {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.65rem; color: var(--muted);
-  letter-spacing: 0.1em;
-}
-
-.features-grid {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
-  background: var(--border);
-}
-
-.feature-item {
-  background: var(--black);
-  padding: 3rem 2.5rem;
-  border-bottom: 1px solid var(--border);
-  transition: background .4s;
-  position: relative; overflow: hidden;
-}
-.feature-item::before {
-  content: '';
-  position: absolute; top: 0; left: 0; right: 0; height: 1px;
-  background: var(--accent);
-  transform: scaleX(0); transform-origin: left;
-  transition: transform .4s ease;
-}
-.feature-item:hover { background: #0a0a10; }
-.feature-item:hover::before { transform: scaleX(1); }
-
-.feature-icon {
-  font-family: 'Barlow Condensed', sans-serif;
-  font-weight: 900; font-size: 3rem;
-  color: rgba(255,255,255,0.06);
-  margin-bottom: 1.5rem; line-height: 1;
-  transition: color .4s;
-}
-.feature-item:hover .feature-icon { color: rgba(0,255,136,0.15); }
-
-.feature-title {
-  font-family: 'Barlow Condensed', sans-serif;
-  font-weight: 700; font-size: 1.4rem;
-  letter-spacing: 0.02em; margin-bottom: 0.75rem;
-  text-transform: uppercase;
-}
-
-.feature-desc {
-  font-size: 0.85rem; color: rgba(255,255,255,0.4);
-  font-weight: 300; line-height: 1.8;
-}
-
-/* SPECS SECTION */
+/* =============================================
+   SPECS — tabla de especificaciones técnicas
+   ============================================= */
 #specs {
-  background: var(--black2);
   padding: 8rem 3rem;
   border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
+  background: var(--black2);
 }
-
 .specs-inner {
-  max-width: 1400px; margin: 0 auto;
-  display: grid; grid-template-columns: 1fr 1.2fr; gap: 8rem;
-  align-items: center;
+  max-width: 1200px; margin: 0 auto;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8rem;
+  align-items: start;
 }
-
 .specs-label {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.65rem; color: var(--accent);
+  font-size: 0.62rem; color: var(--accent);
   letter-spacing: 0.2em; text-transform: uppercase;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
 }
-
 .specs-title {
   font-family: 'Barlow Condensed', sans-serif;
-  font-weight: 900; font-size: clamp(2.5rem, 4vw, 4.5rem);
-  line-height: 0.95; letter-spacing: -0.02em;
+  font-weight: 900; font-size: clamp(2.5rem, 4vw, 5rem);
+  line-height: 0.9; letter-spacing: -0.02em;
   margin-bottom: 3rem;
 }
-
 .spec-row {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 1.25rem 0;
-  border-bottom: 1px solid var(--border);
+  padding: 1.1rem 0; border-bottom: 1px solid var(--border);
 }
 .spec-key {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.7rem; color: var(--muted);
+  font-size: 0.65rem; color: var(--muted);
   letter-spacing: 0.1em; text-transform: uppercase;
 }
 .spec-val {
   font-family: 'Barlow Condensed', sans-serif;
-  font-weight: 700; font-size: 1.1rem;
-  letter-spacing: 0.02em;
+  font-weight: 700; font-size: 1rem; letter-spacing: 0.02em;
 }
-.spec-val.accent { color: var(--accent); }
+.spec-val.hi { color: var(--accent); }
 
-/* Ring visual grande */
-.ring-showcase {
+/* Anillo de specs */
+.specs-visual {
   display: flex; align-items: center; justify-content: center;
   position: relative;
 }
-.ring-showcase-svg {
-  width: 100%; max-width: 400px;
-  filter: drop-shadow(0 0 80px rgba(0,255,136,0.25));
+.specs-ring-wrap {
+  width: 100%; max-width: 380px;
 }
 
-/* PRICING */
+/* =============================================
+   PRICING
+   ============================================= */
 #pricing {
   padding: 8rem 3rem;
-  max-width: 1400px; margin: 0 auto;
+  border-top: 1px solid var(--border);
 }
-
-.pricing-header {
-  text-align: center; margin-bottom: 5rem;
-}
+.pricing-inner { max-width: 1200px; margin: 0 auto; }
+.pricing-header { text-align: center; margin-bottom: 5rem; }
 .pricing-eyebrow {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.65rem; color: var(--accent);
-  letter-spacing: 0.2em; text-transform: uppercase;
-  margin-bottom: 1.5rem;
+  font-size: 0.62rem; color: var(--accent);
+  letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 1.5rem;
 }
 .pricing-title {
   font-family: 'Barlow Condensed', sans-serif;
-  font-weight: 900; font-size: clamp(3rem, 6vw, 6rem);
-  line-height: 0.9; letter-spacing: -0.03em;
+  font-weight: 900; font-size: clamp(3rem, 6vw, 7rem);
+  line-height: 0.88; letter-spacing: -0.03em;
 }
-
-.pricing-grid {
-  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px;
-  background: var(--border);
+.cards {
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: 1px; background: var(--border);
 }
-
-.price-card {
+.card {
   background: var(--black);
-  padding: 3rem 2.5rem;
-  position: relative; transition: background .3s;
+  padding: 3rem 2.5rem; position: relative;
+  transition: background .3s;
 }
-.price-card:hover { background: #0d0d14; }
-.price-card.featured {
-  background: #fff; color: var(--black);
-}
-.price-card.featured .plan-name,
-.price-card.featured .plan-desc,
-.price-card.featured .plan-feature { color: rgba(0,0,0,0.6); }
-.price-card.featured .plan-price-val { color: var(--black); }
-.price-card.featured .plan-feature-val { color: var(--black); }
-
-.featured-badge {
+.card:hover { background: #0b0b12; }
+.card.featured { background: #fff; color: #000; }
+.card.featured:hover { background: #f5f5f5; }
+.featured-tag {
   position: absolute; top: -1px; left: 50%; transform: translateX(-50%);
-  background: var(--accent); color: var(--black);
+  background: var(--accent); color: #000;
   font-family: 'Barlow Condensed', sans-serif;
-  font-weight: 700; font-size: 0.7rem;
+  font-weight: 700; font-size: 0.65rem;
   letter-spacing: 0.15em; text-transform: uppercase;
-  padding: 0.3rem 1rem;
+  padding: 0.25rem 0.9rem;
 }
-
-.plan-name {
+.card-plan {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.65rem; letter-spacing: 0.15em;
+  font-size: 0.62rem; letter-spacing: 0.15em;
   text-transform: uppercase; color: var(--muted);
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
 }
-
-.plan-price {
-  margin-bottom: 2.5rem;
-  padding-bottom: 2.5rem;
-  border-bottom: 1px solid var(--border);
-}
-.price-card.featured .plan-price { border-color: rgba(0,0,0,0.1); }
-
-.plan-price-val {
+.card.featured .card-plan { color: rgba(0,0,0,0.45); }
+.card-price {
   font-family: 'Barlow Condensed', sans-serif;
   font-weight: 900; font-size: 4rem;
   line-height: 1; letter-spacing: -0.03em;
+  margin-bottom: 0.4rem;
 }
-.plan-price-val sup { font-size: 1.5rem; vertical-align: top; margin-top: 0.5rem; }
-.plan-desc { font-size: 0.8rem; color: var(--muted); margin-top: 0.5rem; font-weight: 300; }
-
-.plan-features { list-style: none; margin-bottom: 2.5rem; }
-.plan-feature {
-  font-size: 0.85rem; color: rgba(255,255,255,0.4);
-  padding: 0.6rem 0; display: flex; align-items: center; gap: 0.75rem;
-  border-bottom: 1px solid var(--border);
+.card-price sup { font-size: 1.5rem; vertical-align: top; margin-top: 0.6rem; }
+.card-note {
+  font-size: 0.75rem; color: var(--muted); margin-bottom: 2.5rem;
+  padding-bottom: 2.5rem; border-bottom: 1px solid var(--border);
   font-weight: 300;
 }
-.price-card.featured .plan-feature { border-color: rgba(0,0,0,0.08); }
-.plan-feature-val { color: var(--white); font-weight: 400; }
-.plan-feature::before { content: '→'; color: var(--accent); font-size: 0.75rem; flex-shrink: 0; }
-.price-card.featured .plan-feature::before { color: var(--black); }
-
-.plan-btn {
+.card.featured .card-note { border-color: rgba(0,0,0,0.1); color: rgba(0,0,0,0.4); }
+.card-features { list-style: none; margin-bottom: 2.5rem; }
+.card-feature {
+  font-size: 0.82rem; color: rgba(255,255,255,0.4);
+  padding: 0.55rem 0; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 0.6rem; font-weight: 300;
+}
+.card.featured .card-feature { color: rgba(0,0,0,0.5); border-color: rgba(0,0,0,0.08); }
+.card-feature::before { content: '→'; color: var(--accent); font-size: 0.7rem; flex-shrink: 0; }
+.card.featured .card-feature::before { color: #000; }
+.card-feature b { color: var(--white); font-weight: 500; }
+.card.featured .card-feature b { color: #000; font-weight: 600; }
+.card-btn {
   display: block; text-align: center;
   font-family: 'Barlow Condensed', sans-serif;
-  font-weight: 700; font-size: 0.9rem;
+  font-weight: 700; font-size: 0.88rem;
   letter-spacing: 0.1em; text-transform: uppercase;
   padding: 1rem; text-decoration: none;
-  transition: background .2s, color .2s;
-  border: 1px solid var(--border);
-  color: var(--white);
+  border: 1px solid var(--border); color: var(--white);
+  transition: background .2s, color .2s, border-color .2s;
 }
-.plan-btn:hover { background: var(--white); color: var(--black); border-color: var(--white); }
-.price-card.featured .plan-btn {
-  background: var(--black); color: var(--white); border-color: var(--black);
-}
-.price-card.featured .plan-btn:hover { background: var(--accent); border-color: var(--accent); color: var(--black); }
+.card-btn:hover { background: #fff; color: #000; border-color: #fff; }
+.card.featured .card-btn { background: #000; color: #fff; border-color: #000; }
+.card.featured .card-btn:hover { background: var(--accent); border-color: var(--accent); color: #000; }
 
-/* CTA FINAL */
+/* =============================================
+   CTA FINAL — sección de cierre
+   Texto enorme con técnica outline + solid mezclados
+   ============================================= */
 #cta {
-  position: relative; overflow: hidden;
-  border-top: 1px solid var(--border);
-}
-
-.cta-inner {
   padding: 10rem 3rem;
-  max-width: 1400px; margin: 0 auto;
-  display: flex; flex-direction: column;
-  align-items: center; text-align: center;
-  position: relative; z-index: 1;
+  border-top: 1px solid var(--border);
+  text-align: center; position: relative; overflow: hidden;
 }
-
 .cta-title {
   font-family: 'Barlow Condensed', sans-serif;
-  font-weight: 900; font-size: clamp(4rem, 10vw, 12rem);
-  line-height: 0.85; letter-spacing: -0.04em;
+  font-weight: 900;
+  font-size: clamp(5rem, 14vw, 16rem);
+  line-height: 0.82; letter-spacing: -0.04em;
   margin-bottom: 3rem;
 }
-.cta-title .outline { color: transparent; -webkit-text-stroke: 1px rgba(255,255,255,0.2); }
-.cta-title .solid { color: var(--white); }
-
+.cta-title .s { color: var(--white); }
+.cta-title .o { color: transparent; -webkit-text-stroke: 1px rgba(255,255,255,0.15); }
 .cta-sub {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.8rem; color: var(--muted);
-  letter-spacing: 0.1em; margin-bottom: 3rem;
-  font-weight: 300;
+  font-size: 0.75rem; color: var(--muted);
+  letter-spacing: 0.1em; margin-bottom: 3rem; font-weight: 300;
 }
-
 .cta-btn {
-  font-family: 'Barlow Condensed', sans-serif;
-  font-weight: 900; font-size: 1.1rem;
-  letter-spacing: 0.15em; text-transform: uppercase;
-  background: var(--accent); color: var(--black);
-  padding: 1.2rem 3.5rem; text-decoration: none;
-  transition: transform .2s, box-shadow .2s;
   display: inline-flex; align-items: center; gap: 1rem;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900; font-size: 1.05rem;
+  letter-spacing: 0.15em; text-transform: uppercase;
+  background: var(--accent); color: #000;
+  padding: 1.1rem 3rem; text-decoration: none;
+  transition: transform .2s, box-shadow .2s;
 }
 .cta-btn:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 20px 60px rgba(0,255,136,0.3);
-}
-
-/* CTA BG text */
-.cta-bg-text {
-  position: absolute; bottom: -2rem; left: 50%; transform: translateX(-50%);
-  font-family: 'Barlow Condensed', sans-serif;
-  font-weight: 900; font-size: clamp(80px, 15vw, 200px);
-  white-space: nowrap; color: transparent;
-  -webkit-text-stroke: 1px rgba(255,255,255,0.04);
-  letter-spacing: -0.03em; user-select: none; z-index: 0;
+  transform: translateY(-4px);
+  box-shadow: 0 24px 60px rgba(0,255,136,0.35);
 }
 
 /* FOOTER */
@@ -543,389 +489,381 @@ footer {
   border-top: 1px solid var(--border);
   padding: 2rem 3rem;
   display: flex; justify-content: space-between; align-items: center;
-  max-width: 100%;
 }
 .foot-logo {
   font-family: 'Barlow Condensed', sans-serif;
-  font-weight: 900; font-size: 1.1rem; letter-spacing: 0.05em;
+  font-weight: 900; font-size: 1.1rem; letter-spacing: 0.06em;
 }
 .foot-logo span { color: var(--accent); }
 .foot-links { display: flex; gap: 2rem; list-style: none; }
 .foot-links a {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.65rem; color: var(--muted);
+  font-size: 0.62rem; color: var(--muted);
   text-decoration: none; letter-spacing: 0.1em; text-transform: uppercase;
+  transition: color .2s;
 }
 .foot-links a:hover { color: var(--white); }
 .foot-copy {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.65rem; color: var(--muted);
+  font-size: 0.62rem; color: var(--muted);
 }
 
-/* SCROLL REVEAL */
-.sr { opacity: 0; transform: translateY(40px); }
-
-/* MOBILE */
+/* =============================================
+   RESPONSIVE MOBILE
+   Media queries — reglas que solo aplican
+   cuando la pantalla es menor de X píxeles
+   ============================================= */
 @media (max-width: 768px) {
   body { cursor: auto; }
-  .cur { display: none; }
+  .cursor-dot, .cursor-ring { display: none; }
   nav { padding: 1.2rem 1.5rem; }
   .nav-links { display: none; }
-  #hero { height: 100svh; }
-  .hero-bg-text { font-size: clamp(70px, 18vw, 120px); }
-  .ring-container { width: 55vw; height: 55vw; }
-  .hero-info { left: 1.5rem; bottom: 6rem; }
-  .hero-price { right: 1.5rem; bottom: 6rem; }
-  #intro { grid-template-columns: 1fr; gap: 3rem; padding: 5rem 1.5rem; }
-  .intro-stats { grid-template-columns: 1fr 1fr; }
-  #features { padding: 0 1.5rem 5rem; }
-  .features-grid { grid-template-columns: 1fr; }
-  .specs-inner { grid-template-columns: 1fr; gap: 3rem; padding: 0; }
+  .progress-dots { display: none; }
+  .hero-title { font-size: clamp(80px, 22vw, 130px); }
+  .hero-ring-wrap { width: 55vw; height: 55vw; }
+  .feature-panel { max-width: 200px; }
+  .feature-panel.left { left: 2%; }
+  .feature-panel.right { right: 2%; }
+  .feature-title { font-size: 1.5rem; }
+  .feature-body { font-size: 0.75rem; }
+  .feature-number { font-size: 3.5rem; }
   #specs { padding: 5rem 1.5rem; }
-  .ring-showcase { order: -1; }
-  .ring-showcase-svg { max-width: 250px; }
-  .pricing-grid { grid-template-columns: 1fr; }
+  .specs-inner { grid-template-columns: 1fr; gap: 3rem; }
+  .specs-visual { order: -1; }
   #pricing { padding: 5rem 1.5rem; }
-  .cta-title { font-size: clamp(3rem, 12vw, 6rem); }
-  footer { flex-direction: column; gap: 1rem; text-align: center; padding: 2rem 1.5rem; }
+  .cards { grid-template-columns: 1fr; }
+  #cta { padding: 6rem 1.5rem; }
+  .cta-title { font-size: clamp(4rem, 16vw, 8rem); }
+  footer { flex-direction: column; gap: 1rem; padding: 2rem 1.5rem; text-align: center; }
   .foot-links { flex-wrap: wrap; justify-content: center; }
 }
 </style>
 </head>
 <body>
 
-<div class="cur" id="cur-dot-el"><div class="cur-dot"></div></div>
-<div class="cur" id="cur-ring-el"><div class="cur-ring" id="cur-ring"></div></div>
+<!-- CURSORES CUSTOM -->
+<div class="cursor-dot" id="cdot"></div>
+<div class="cursor-ring" id="cring"></div>
+
+<!-- INDICADOR DE PROGRESO LATERAL -->
+<div class="progress-dots">
+  <div class="pdot active" data-section="hero" title="Intro"></div>
+  <div class="pdot" data-section="scene1" title="Heart Rate"></div>
+  <div class="pdot" data-section="scene2" title="Hydration"></div>
+  <div class="pdot" data-section="scene3" title="Slope"></div>
+  <div class="pdot" data-section="scene4" title="Recovery"></div>
+  <div class="pdot" data-section="specs" title="Specs"></div>
+  <div class="pdot" data-section="pricing" title="Pricing"></div>
+</div>
 
 <nav>
   <div class="nav-logo">PULSE<span>X</span></div>
   <ul class="nav-links">
-    <li><a href="#intro">Product</a></li>
-    <li><a href="#features">Features</a></li>
+    <li><a href="#scene1">Features</a></li>
     <li><a href="#specs">Specs</a></li>
     <li><a href="#pricing">Pricing</a></li>
   </ul>
-  <a href="#pricing" class="nav-cta">Order Now</a>
+  <a href="#pricing" class="nav-order">Order Now</a>
 </nav>
 
-<!-- HERO -->
+<!-- =============================================
+     HERO — Escena de entrada
+     ============================================= -->
 <section id="hero">
-  <div class="hero-bg-text" id="hero-text">
-    <span class="line-top" id="line-top">PULSE</span>
-    <span class="line-bot" id="line-bot">X</span>
-  </div>
-
-  <div class="ring-container" id="ring-wrap">
-    <svg class="ring-svg" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+  <p class="hero-eyebrow">Smart Ring · Generation I</p>
+  <h1 class="hero-title">
+    <span class="word-pulse">PULSE</span>
+    <span class="word-x">X</span>
+  </h1>
+  <!--
+    El anillo está position:absolute encima del título.
+    z-index: 2 en .hero-ring-wrap y z-index: 1 en .hero-title
+    hace que el anillo "rompa" visualmente el texto
+  -->
+  <div class="hero-ring-wrap" id="hero-ring">
+    <!-- SVG del anillo — cada parte tiene ID para animarla individualmente -->
+    <svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;">
       <defs>
-        <radialGradient id="ringGrad" cx="40%" cy="35%" r="65%">
-          <stop offset="0%" stop-color="#2a2a3a"/>
-          <stop offset="40%" stop-color="#111118"/>
-          <stop offset="100%" stop-color="#050508"/>
+        <radialGradient id="hg1" cx="38%" cy="32%" r="68%">
+          <stop offset="0%" stop-color="#28283a"/>
+          <stop offset="45%" stop-color="#0e0e1a"/>
+          <stop offset="100%" stop-color="#040408"/>
         </radialGradient>
-        <radialGradient id="glowGrad" cx="40%" cy="35%" r="60%">
-          <stop offset="0%" stop-color="#00ff88" stop-opacity="0.15"/>
-          <stop offset="100%" stop-color="#00ff88" stop-opacity="0"/>
-        </radialGradient>
-        <linearGradient id="edgeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#444455"/>
-          <stop offset="30%" stop-color="#00ff88" stop-opacity="0.6"/>
-          <stop offset="60%" stop-color="#222230"/>
-          <stop offset="100%" stop-color="#333345"/>
+        <linearGradient id="hg2" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#505065"/>
+          <stop offset="28%" stop-color="#00ff88" stop-opacity="0.7"/>
+          <stop offset="58%" stop-color="#1a1a28"/>
+          <stop offset="100%" stop-color="#383850"/>
         </linearGradient>
-        <filter id="innerShadow">
-          <feGaussianBlur stdDeviation="8" result="blur"/>
-          <feComposite in="SourceGraphic" in2="blur" operator="over"/>
-        </filter>
       </defs>
-      <!-- Sombra exterior -->
-      <ellipse cx="200" cy="210" rx="140" ry="30" fill="rgba(0,0,0,0.5)" filter="url(#innerShadow)"/>
-      <!-- Cuerpo principal del anillo -->
-      <circle cx="200" cy="195" r="138" fill="url(#ringGrad)" stroke="url(#edgeGrad)" stroke-width="1.5"/>
+      <!-- Sombra debajo del anillo -->
+      <ellipse cx="200" cy="215" rx="135" ry="28" fill="rgba(0,0,0,0.55)"/>
+      <!-- Cuerpo principal -->
+      <circle id="ring-body" cx="200" cy="196" r="136" fill="url(#hg1)" stroke="url(#hg2)" stroke-width="1.5"/>
       <!-- Agujero interior -->
-      <circle cx="200" cy="195" r="90" fill="#050507"/>
-      <!-- Glow interior -->
-      <circle cx="200" cy="195" r="90" fill="none" stroke="#00ff88" stroke-width="0.5" opacity="0.3"/>
+      <circle cx="200" cy="196" r="89" fill="#040408"/>
+      <!-- Borde interior sutil -->
+      <circle cx="200" cy="196" r="89" fill="none" stroke="#00ff88" stroke-width="0.6" opacity="0.2"/>
       <!-- Reflejo superior -->
-      <ellipse cx="175" cy="140" rx="55" ry="20" fill="white" opacity="0.04" transform="rotate(-20 175 140)"/>
-      <!-- Sensor LED simulado -->
-      <circle cx="200" cy="290" r="8" fill="#00ff88" opacity="0.6"/>
-      <circle cx="200" cy="290" r="5" fill="#00ff88" opacity="0.9"/>
-      <circle cx="200" cy="290" r="3" fill="#aaffdd"/>
-      <!-- Indicadores laterales -->
-      <circle cx="200" cy="100" r="3" fill="rgba(0,255,136,0.4)"/>
-      <rect x="185" y="97" width="30" height="1" fill="rgba(0,255,136,0.2)" rx="0.5"/>
+      <ellipse cx="174" cy="140" rx="52" ry="18" fill="white" opacity="0.04" transform="rotate(-20 174 140)"/>
+      <!-- SENSORES — cada uno con su ID para animarlos por separado -->
+      <!-- Sensor principal (pulso / PPG) -->
+      <g id="sensor-pulse">
+        <circle cx="200" cy="292" r="10" fill="#00ff88" opacity="0"/>
+        <circle cx="200" cy="292" r="6"  fill="#00ff88" opacity="0"/>
+        <circle cx="200" cy="292" r="3"  fill="#aaffdd" opacity="0"/>
+      </g>
+      <!-- Sensor de hidratación (BIA) -->
+      <g id="sensor-hydro">
+        <circle cx="160" cy="280" r="7" fill="#00aaff" opacity="0"/>
+        <circle cx="160" cy="280" r="4" fill="#88ddff" opacity="0"/>
+      </g>
+      <!-- Sensor de temperatura -->
+      <g id="sensor-temp">
+        <circle cx="240" cy="280" r="7" fill="#ff6644" opacity="0"/>
+        <circle cx="240" cy="280" r="4" fill="#ffaa88" opacity="0"/>
+      </g>
+      <!-- Barometro / pendiente -->
+      <g id="sensor-baro">
+        <rect x="188" y="100" width="24" height="4" rx="2" fill="#00ff88" opacity="0"/>
+        <rect x="193" y="94" width="14" height="4" rx="2" fill="#00ff88" opacity="0"/>
+      </g>
       <!-- Texto grabado -->
-      <text x="200" y="202" text-anchor="middle" fill="rgba(255,255,255,0.06)"
-        font-family="'Barlow Condensed', sans-serif" font-weight="900" font-size="18" letter-spacing="4">PULSEX</text>
-      <!-- Rim highlight -->
-      <circle cx="200" cy="195" r="138" fill="none" stroke="white" stroke-width="0.5" opacity="0.05"/>
+      <text x="200" y="203" text-anchor="middle" fill="rgba(255,255,255,0.05)"
+        font-family="'Barlow Condensed',sans-serif" font-weight="900" font-size="17" letter-spacing="4">PULSEX</text>
     </svg>
   </div>
-
-  <div class="hero-info">
-    <div class="hero-tag">● Smart Ring · Gen 1</div>
-    <p class="hero-desc">Your body generates data 24/7. PulseX is the first ring built to understand it.</p>
-  </div>
-
-  <div class="hero-price">
-    <div class="price-label">Starting at</div>
-    <div class="price-val"><span>€</span>299</div>
-  </div>
-
-  <div class="scroll-hint">
-    <div class="scroll-hint-line"></div>
-    <span class="scroll-hint-text">scroll</span>
+  <div class="hero-scroll-hint" id="scroll-hint">
+    <div class="scroll-line"></div>
+    <span class="scroll-label">scroll to explore</span>
   </div>
 </section>
 
 <!-- MARQUEE -->
-<div class="marquee-wrap">
+<div class="marquee-band">
   <div class="marquee-track">
-    <div class="marquee-item"><span class="dot"></span> Heart Rate 24/7</div>
-    <div class="marquee-item"><span class="dot"></span> Hydration Index</div>
-    <div class="marquee-item"><span class="dot"></span> Slope Detection</div>
-    <div class="marquee-item"><span class="dot"></span> Sleep Quality</div>
-    <div class="marquee-item"><span class="dot"></span> Recovery Score</div>
-    <div class="marquee-item"><span class="dot"></span> 7-Day Battery</div>
-    <div class="marquee-item"><span class="dot"></span> IP68 Waterproof</div>
-    <div class="marquee-item"><span class="dot"></span> AI Coaching</div>
-    <div class="marquee-item"><span class="dot"></span> Heart Rate 24/7</div>
-    <div class="marquee-item"><span class="dot"></span> Hydration Index</div>
-    <div class="marquee-item"><span class="dot"></span> Slope Detection</div>
-    <div class="marquee-item"><span class="dot"></span> Sleep Quality</div>
-    <div class="marquee-item"><span class="dot"></span> Recovery Score</div>
-    <div class="marquee-item"><span class="dot"></span> 7-Day Battery</div>
-    <div class="marquee-item"><span class="dot"></span> IP68 Waterproof</div>
-    <div class="marquee-item"><span class="dot"></span> AI Coaching</div>
+    <!-- Contenido duplicado — necesario para que el loop sea continuo -->
+    <div class="marquee-item"><span class="marquee-dot"></span>Heart Rate 24/7</div>
+    <div class="marquee-item"><span class="marquee-dot"></span>Hydration Index</div>
+    <div class="marquee-item"><span class="marquee-dot"></span>Slope Detection</div>
+    <div class="marquee-item"><span class="marquee-dot"></span>Sleep Architecture</div>
+    <div class="marquee-item"><span class="marquee-dot"></span>Recovery Score</div>
+    <div class="marquee-item"><span class="marquee-dot"></span>7-Day Battery</div>
+    <div class="marquee-item"><span class="marquee-dot"></span>IP68 Waterproof</div>
+    <div class="marquee-item"><span class="marquee-dot"></span>AI Coaching</div>
+    <!-- Duplicado -->
+    <div class="marquee-item"><span class="marquee-dot"></span>Heart Rate 24/7</div>
+    <div class="marquee-item"><span class="marquee-dot"></span>Hydration Index</div>
+    <div class="marquee-item"><span class="marquee-dot"></span>Slope Detection</div>
+    <div class="marquee-item"><span class="marquee-dot"></span>Sleep Architecture</div>
+    <div class="marquee-item"><span class="marquee-dot"></span>Recovery Score</div>
+    <div class="marquee-item"><span class="marquee-dot"></span>7-Day Battery</div>
+    <div class="marquee-item"><span class="marquee-dot"></span>IP68 Waterproof</div>
+    <div class="marquee-item"><span class="marquee-dot"></span>AI Coaching</div>
   </div>
 </div>
 
-<!-- INTRO -->
-<section id="intro">
-  <div>
-    <div class="intro-label sr">What is PulseX</div>
-    <h2 class="intro-title sr">The ring that<br>reads your<br><em>biology.</em></h2>
-    <p class="intro-body sr">
-      Most wearables tell you how many steps you've taken. PulseX tells you <strong>what's actually happening inside your body</strong> — hydration levels, real-time effort during hill climbs, sleep architecture, and recovery readiness before you even get out of bed.
-      <br><br>
-      Worn on your finger. Invisible to the world. <strong>Loud in your data.</strong>
-    </p>
-  </div>
-  <div class="intro-stats sr">
-    <div class="stat-box">
-      <div class="stat-num green">7</div>
-      <div class="stat-label">Days battery<br>on single charge</div>
-    </div>
-    <div class="stat-box">
-      <div class="stat-num">12</div>
-      <div class="stat-label">Biometric<br>sensors</div>
-    </div>
-    <div class="stat-box">
-      <div class="stat-num red">98%</div>
-      <div class="stat-label">Heart rate<br>accuracy</div>
-    </div>
-    <div class="stat-box">
-      <div class="stat-num green">IP68</div>
-      <div class="stat-label">Waterproof<br>rating</div>
-    </div>
-  </div>
-</section>
+<!-- =============================================
+     ESCENA 1 — Heart Rate
+     height: 300vh = 3 pantallas de "tiempo de scroll"
+     La .scene-sticky se queda fija con position:sticky
+     ============================================= -->
+<div class="scene" id="scene1">
+  <div class="scene-sticky">
 
-<!-- FEATURES -->
-<section id="features">
-  <div class="features-header">
-    <h2 class="features-title sr">What it<br>measures.</h2>
-    <span class="features-num sr">06 features</span>
+    <!-- Anillo central fijo en todas las escenas -->
+    <div class="scene-ring" id="scene-ring-1">
+      <svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;filter:drop-shadow(0 0 50px rgba(0,255,136,0.2))">
+        <defs>
+          <radialGradient id="sg1" cx="38%" cy="32%" r="68%">
+            <stop offset="0%" stop-color="#28283a"/><stop offset="45%" stop-color="#0e0e1a"/><stop offset="100%" stop-color="#040408"/>
+          </radialGradient>
+          <linearGradient id="sg2" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#505065"/>
+            <stop offset="28%" stop-color="#00ff88" stop-opacity="0.7"/>
+            <stop offset="58%" stop-color="#1a1a28"/>
+            <stop offset="100%" stop-color="#383850"/>
+          </linearGradient>
+        </defs>
+        <ellipse cx="200" cy="215" rx="135" ry="28" fill="rgba(0,0,0,0.55)"/>
+        <circle cx="200" cy="196" r="136" fill="url(#sg1)" stroke="url(#sg2)" stroke-width="1.5"/>
+        <circle cx="200" cy="196" r="89" fill="#040408"/>
+        <circle cx="200" cy="196" r="89" fill="none" stroke="#00ff88" stroke-width="0.6" opacity="0.2"/>
+        <ellipse cx="174" cy="140" rx="52" ry="18" fill="white" opacity="0.04" transform="rotate(-20 174 140)"/>
+        <!-- Sensor activo en esta escena se ilumina con GSAP -->
+        <g id="s1-pulse">
+          <circle cx="200" cy="292" r="12" fill="#00ff88" opacity="0"/>
+          <circle cx="200" cy="292" r="7"  fill="#00ff88" opacity="0"/>
+          <circle cx="200" cy="292" r="3"  fill="#ccffee" opacity="0"/>
+        </g>
+        <g id="s1-hydro">
+          <circle cx="162" cy="278" r="8" fill="#00aaff" opacity="0"/>
+          <circle cx="162" cy="278" r="4" fill="#88ddff" opacity="0"/>
+        </g>
+        <g id="s1-temp">
+          <circle cx="238" cy="278" r="8" fill="#ff6644" opacity="0"/>
+          <circle cx="238" cy="278" r="4" fill="#ffaa88" opacity="0"/>
+        </g>
+        <g id="s1-baro">
+          <rect x="188" y="100" width="24" height="4" rx="2" fill="#00ff88" opacity="0"/>
+          <rect x="193" y="94" width="14" height="4" rx="2" fill="#00ff88" opacity="0"/>
+        </g>
+        <text x="200" y="203" text-anchor="middle" fill="rgba(255,255,255,0.05)"
+          font-family="'Barlow Condensed',sans-serif" font-weight="900" font-size="17" letter-spacing="4">PULSEX</text>
+      </svg>
+    </div>
+
+    <!-- Panel izquierda: Heart Rate -->
+    <div class="feature-panel left" id="fp1">
+      <div class="feature-number">01</div>
+      <div class="feature-tag">Heart Rate</div>
+      <h2 class="feature-title">Always<br>watching.</h2>
+      <div class="feature-line" id="fl1"></div>
+      <p class="feature-body">Optical PPG sensors track your heart rate <strong>continuously, 24/7</strong>. Detects anomalies in real time and alerts you before you feel anything.</p>
+    </div>
+
+    <!-- Panel derecha: Hydration -->
+    <div class="feature-panel right" id="fp2">
+      <div class="feature-number">02</div>
+      <div class="feature-tag">Hydration Index</div>
+      <h2 class="feature-title">Know<br>your water.</h2>
+      <div class="feature-line" id="fl2"></div>
+      <p class="feature-body">Bioimpedance sensors estimate <strong>cellular hydration in real time</strong>. No more guessing. Your ring knows before you feel thirsty.</p>
+    </div>
+
+    <!-- Panel izquierda: Slope -->
+    <div class="feature-panel left" id="fp3">
+      <div class="feature-number">03</div>
+      <div class="feature-tag">Slope Detection</div>
+      <h2 class="feature-title">Built for<br>the climb.</h2>
+      <div class="feature-line" id="fl3"></div>
+      <p class="feature-body">Barometric pressure + accelerometer fusion. PulseX knows when you're ascending and <strong>adjusts your effort score</strong> for trail runners and hikers.</p>
+    </div>
+
+    <!-- Panel derecha: Recovery -->
+    <div class="feature-panel right" id="fp4">
+      <div class="feature-number">04</div>
+      <div class="feature-tag">Recovery Score</div>
+      <h2 class="feature-title">Know when<br>to push.</h2>
+      <div class="feature-line" id="fl4"></div>
+      <p class="feature-body">HRV, resting HR, skin temperature and sleep quality — combined into <strong>one daily score</strong>. Know before you train whether to push or rest.</p>
+    </div>
+
   </div>
-  <div class="features-grid">
-    <div class="feature-item sr">
-      <div class="feature-icon">♥</div>
-      <div class="feature-title">Heart Rate 24/7</div>
-      <p class="feature-desc">Continuous optical PPG monitoring. Detects anomalies and sends alerts directly to your phone. Clinical-grade accuracy.</p>
-    </div>
-    <div class="feature-item sr">
-      <div class="feature-icon">◈</div>
-      <div class="feature-title">Hydration Index</div>
-      <p class="feature-desc">Our proprietary bioimpedance algorithm estimates cellular hydration in real time. No more guessing how much water you need.</p>
-    </div>
-    <div class="feature-item sr">
-      <div class="feature-icon">▲</div>
-      <div class="feature-title">Slope Detection</div>
-      <p class="feature-desc">Accelerometer + barometric pressure fusion. Knows when you're climbing and adjusts effort scoring accordingly. Built for trail runners and hikers.</p>
-    </div>
-    <div class="feature-item sr">
-      <div class="feature-icon">◐</div>
-      <div class="feature-title">Sleep Architecture</div>
-      <p class="feature-desc">Maps REM, deep, and light sleep cycles throughout the night. Generates a recovery score every morning so you know how hard you can push.</p>
-    </div>
-    <div class="feature-item sr">
-      <div class="feature-icon">⬡</div>
-      <div class="feature-title">AI Coaching</div>
-      <p class="feature-desc">PulseX learns your baseline over 14 days. Then it gives you personalized daily recommendations based on your real biometric patterns.</p>
-    </div>
-    <div class="feature-item sr">
-      <div class="feature-icon">↯</div>
-      <div class="feature-title">Recovery Score</div>
-      <p class="feature-desc">HRV, resting HR, skin temperature, and sleep quality combined into one daily score. Know before you train whether to push or rest.</p>
-    </div>
-  </div>
-</section>
+</div>
 
 <!-- SPECS -->
 <section id="specs">
   <div class="specs-inner">
     <div>
-      <div class="specs-label sr">Technical specifications</div>
-      <h2 class="specs-title sr">Built different.<br>Down to the<br>material.</h2>
-      <div>
-        <div class="spec-row sr">
-          <span class="spec-key">Material</span>
-          <span class="spec-val">Titanium Grade 5</span>
-        </div>
-        <div class="spec-row sr">
-          <span class="spec-key">Battery</span>
-          <span class="spec-val accent">7 days</span>
-        </div>
-        <div class="spec-row sr">
-          <span class="spec-key">Sensors</span>
-          <span class="spec-val">PPG · SpO2 · Temp · Baro · IMU · BIA</span>
-        </div>
-        <div class="spec-row sr">
-          <span class="spec-key">Water resistance</span>
-          <span class="spec-val accent">IP68 · 100m</span>
-        </div>
-        <div class="spec-row sr">
-          <span class="spec-key">Charging</span>
-          <span class="spec-val">Magnetic · 90 min full</span>
-        </div>
-        <div class="spec-row sr">
-          <span class="spec-key">Connectivity</span>
-          <span class="spec-val">Bluetooth 5.3 LE</span>
-        </div>
-        <div class="spec-row sr">
-          <span class="spec-key">Sizes</span>
-          <span class="spec-val">6 · 7 · 8 · 9 · 10 · 11 · 12</span>
-        </div>
-        <div class="spec-row sr">
-          <span class="spec-key">Weight</span>
-          <span class="spec-val">3.2g</span>
-        </div>
-        <div class="spec-row sr">
-          <span class="spec-key">App</span>
-          <span class="spec-val">iOS · Android</span>
-        </div>
-      </div>
+      <div class="specs-label">Technical specs</div>
+      <h2 class="specs-title">Built<br>different.</h2>
+      <div class="spec-row"><span class="spec-key">Material</span><span class="spec-val">Titanium Grade 5</span></div>
+      <div class="spec-row"><span class="spec-key">Battery</span><span class="spec-val hi">7 days</span></div>
+      <div class="spec-row"><span class="spec-key">Sensors</span><span class="spec-val">PPG · SpO2 · Temp · Baro · BIA</span></div>
+      <div class="spec-row"><span class="spec-key">Water resistance</span><span class="spec-val hi">IP68 · 100m</span></div>
+      <div class="spec-row"><span class="spec-key">Charging</span><span class="spec-val">Magnetic · 90 min</span></div>
+      <div class="spec-row"><span class="spec-key">Connectivity</span><span class="spec-val">Bluetooth 5.3 LE</span></div>
+      <div class="spec-row"><span class="spec-key">Sizes</span><span class="spec-val">6 · 7 · 8 · 9 · 10 · 11 · 12</span></div>
+      <div class="spec-row"><span class="spec-key">Weight</span><span class="spec-val">3.2g</span></div>
     </div>
-    <div class="ring-showcase sr">
-      <svg class="ring-showcase-svg" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <radialGradient id="rg2" cx="38%" cy="32%" r="70%">
-            <stop offset="0%" stop-color="#303045"/>
-            <stop offset="50%" stop-color="#0d0d1a"/>
-            <stop offset="100%" stop-color="#030305"/>
-          </radialGradient>
-          <linearGradient id="eg2" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#555570"/>
-            <stop offset="25%" stop-color="#00ff88" stop-opacity="0.8"/>
-            <stop offset="55%" stop-color="#1a1a28"/>
-            <stop offset="100%" stop-color="#404055"/>
-          </linearGradient>
-          <radialGradient id="holeGrad" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stop-color="#0a0a12"/>
-            <stop offset="100%" stop-color="#020204"/>
-          </radialGradient>
-        </defs>
-        <ellipse cx="250" cy="270" rx="170" ry="40" fill="rgba(0,0,0,0.6)" filter="url(#innerShadow)"/>
-        <circle cx="250" cy="240" r="170" fill="url(#rg2)" stroke="url(#eg2)" stroke-width="2"/>
-        <circle cx="250" cy="240" r="110" fill="url(#holeGrad)"/>
-        <circle cx="250" cy="240" r="110" fill="none" stroke="#00ff88" stroke-width="0.8" opacity="0.25"/>
-        <circle cx="250" cy="240" r="170" fill="none" stroke="white" stroke-width="0.5" opacity="0.06"/>
-        <ellipse cx="218" cy="170" rx="65" ry="25" fill="white" opacity="0.05" transform="rotate(-25 218 170)"/>
-        <!-- Sensores -->
-        <circle cx="250" cy="360" r="10" fill="#00ff88" opacity="0.5"/>
-        <circle cx="250" cy="360" r="6" fill="#00ff88" opacity="0.8"/>
-        <circle cx="250" cy="360" r="3" fill="#ccffee"/>
-        <circle cx="225" cy="357" r="4" fill="#00ff88" opacity="0.3"/>
-        <circle cx="275" cy="357" r="4" fill="#00ff88" opacity="0.3"/>
-        <!-- Texto -->
-        <text x="250" y="248" text-anchor="middle" fill="rgba(255,255,255,0.05)"
-          font-family="'Barlow Condensed', sans-serif" font-weight="900" font-size="22" letter-spacing="5">PULSEX</text>
-        <text x="250" y="268" text-anchor="middle" fill="rgba(0,255,136,0.12)"
-          font-family="'JetBrains Mono', monospace" font-size="9" letter-spacing="2">GEN · I</text>
-      </svg>
+    <div class="specs-visual">
+      <div class="specs-ring-wrap">
+        <svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" style="width:100%;filter:drop-shadow(0 0 80px rgba(0,255,136,0.2))">
+          <defs>
+            <radialGradient id="srg" cx="38%" cy="32%" r="68%">
+              <stop offset="0%" stop-color="#303045"/><stop offset="50%" stop-color="#0d0d1a"/><stop offset="100%" stop-color="#030305"/>
+            </radialGradient>
+            <linearGradient id="seg" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#555570"/>
+              <stop offset="25%" stop-color="#00ff88" stop-opacity="0.9"/>
+              <stop offset="55%" stop-color="#1a1a28"/>
+              <stop offset="100%" stop-color="#404055"/>
+            </linearGradient>
+          </defs>
+          <ellipse cx="200" cy="215" rx="138" ry="30" fill="rgba(0,0,0,0.6)"/>
+          <circle cx="200" cy="195" r="138" fill="url(#srg)" stroke="url(#seg)" stroke-width="2"/>
+          <circle cx="200" cy="195" r="90" fill="#030305"/>
+          <circle cx="200" cy="195" r="90" fill="none" stroke="#00ff88" stroke-width="0.8" opacity="0.3"/>
+          <ellipse cx="172" cy="138" rx="55" ry="20" fill="white" opacity="0.05" transform="rotate(-20 172 138)"/>
+          <circle cx="200" cy="292" r="10" fill="#00ff88" opacity="0.7"/>
+          <circle cx="200" cy="292" r="6"  fill="#00ff88" opacity="0.9"/>
+          <circle cx="200" cy="292" r="3"  fill="#ccffee"/>
+          <circle cx="162" cy="278" r="7"  fill="#00aaff" opacity="0.6"/>
+          <circle cx="162" cy="278" r="4"  fill="#88ddff" opacity="0.8"/>
+          <circle cx="238" cy="278" r="7"  fill="#ff6644" opacity="0.6"/>
+          <circle cx="238" cy="278" r="4"  fill="#ffaa88" opacity="0.8"/>
+          <rect x="188" y="100" width="24" height="4" rx="2" fill="#00ff88" opacity="0.5"/>
+          <rect x="193" y="94" width="14" height="4" rx="2" fill="#00ff88" opacity="0.4"/>
+          <text x="200" y="202" text-anchor="middle" fill="rgba(255,255,255,0.06)"
+            font-family="'Barlow Condensed',sans-serif" font-weight="900" font-size="17" letter-spacing="4">PULSEX</text>
+        </svg>
+      </div>
     </div>
   </div>
 </section>
 
 <!-- PRICING -->
 <section id="pricing">
-  <div class="pricing-header">
-    <div class="pricing-eyebrow sr">Simple pricing</div>
-    <h2 class="pricing-title sr">Choose your<br>PulseX.</h2>
-  </div>
-  <div class="pricing-grid sr">
-    <div class="price-card">
-      <div class="plan-name">PulseX One</div>
-      <div class="plan-price">
-        <div class="plan-price-val"><sup>€</sup>299</div>
-        <div class="plan-desc">One-time · No subscription</div>
-      </div>
-      <ul class="plan-features">
-        <li class="plan-feature"><span class="plan-feature-val">Heart rate</span> monitoring</li>
-        <li class="plan-feature"><span class="plan-feature-val">Sleep</span> tracking</li>
-        <li class="plan-feature"><span class="plan-feature-val">Step</span> counter</li>
-        <li class="plan-feature"><span class="plan-feature-val">7-day</span> battery</li>
-        <li class="plan-feature"><span class="plan-feature-val">Basic</span> app access</li>
-      </ul>
-      <a href="#" class="plan-btn">Order PulseX One</a>
+  <div class="pricing-inner">
+    <div class="pricing-header">
+      <div class="pricing-eyebrow">Simple pricing</div>
+      <h2 class="pricing-title">Choose your<br>PulseX.</h2>
     </div>
-    <div class="price-card featured">
-      <div class="featured-badge">Most popular</div>
-      <div class="plan-name">PulseX Pro</div>
-      <div class="plan-price">
-        <div class="plan-price-val"><sup>€</sup>399</div>
-        <div class="plan-desc">One-time · No subscription</div>
+    <div class="cards">
+      <div class="card">
+        <div class="card-plan">PulseX One</div>
+        <div class="card-price"><sup>€</sup>299</div>
+        <div class="card-note">One-time · No subscription</div>
+        <ul class="card-features">
+          <li class="card-feature"><b>Heart rate</b> monitoring</li>
+          <li class="card-feature"><b>Sleep</b> tracking</li>
+          <li class="card-feature"><b>Step</b> counter</li>
+          <li class="card-feature"><b>7-day</b> battery</li>
+          <li class="card-feature"><b>Basic</b> app access</li>
+        </ul>
+        <a href="#" class="card-btn">Order PulseX One</a>
       </div>
-      <ul class="plan-features">
-        <li class="plan-feature"><span class="plan-feature-val">All sensors</span> active</li>
-        <li class="plan-feature"><span class="plan-feature-val">Hydration</span> index</li>
-        <li class="plan-feature"><span class="plan-feature-val">Slope</span> detection</li>
-        <li class="plan-feature"><span class="plan-feature-val">AI</span> coaching</li>
-        <li class="plan-feature"><span class="plan-feature-val">Recovery</span> score</li>
-      </ul>
-      <a href="#" class="plan-btn">Order PulseX Pro</a>
-    </div>
-    <div class="price-card">
-      <div class="plan-name">PulseX Elite</div>
-      <div class="plan-price">
-        <div class="plan-price-val"><sup>€</sup>499</div>
-        <div class="plan-desc">Includes 1yr premium coaching</div>
+      <div class="card featured">
+        <div class="featured-tag">Most popular</div>
+        <div class="card-plan">PulseX Pro</div>
+        <div class="card-price"><sup>€</sup>399</div>
+        <div class="card-note">One-time · No subscription</div>
+        <ul class="card-features">
+          <li class="card-feature"><b>All sensors</b> active</li>
+          <li class="card-feature"><b>Hydration</b> index</li>
+          <li class="card-feature"><b>Slope</b> detection</li>
+          <li class="card-feature"><b>AI</b> coaching</li>
+          <li class="card-feature"><b>Recovery</b> score</li>
+        </ul>
+        <a href="#" class="card-btn">Order PulseX Pro</a>
       </div>
-      <ul class="plan-features">
-        <li class="plan-feature"><span class="plan-feature-val">Everything</span> in Pro</li>
-        <li class="plan-feature"><span class="plan-feature-val">Priority</span> support</li>
-        <li class="plan-feature"><span class="plan-feature-val">Engraving</span> included</li>
-        <li class="plan-feature"><span class="plan-feature-val">Early</span> feature access</li>
-        <li class="plan-feature"><span class="plan-feature-val">1 year</span> AI premium</li>
-      </ul>
-      <a href="#" class="plan-btn">Order PulseX Elite</a>
+      <div class="card">
+        <div class="card-plan">PulseX Elite</div>
+        <div class="card-price"><sup>€</sup>499</div>
+        <div class="card-note">Includes 1yr premium coaching</div>
+        <ul class="card-features">
+          <li class="card-feature"><b>Everything</b> in Pro</li>
+          <li class="card-feature"><b>Priority</b> support</li>
+          <li class="card-feature"><b>Engraving</b> included</li>
+          <li class="card-feature"><b>Early</b> feature access</li>
+          <li class="card-feature"><b>1 year</b> AI premium</li>
+        </ul>
+        <a href="#" class="card-btn">Order PulseX Elite</a>
+      </div>
     </div>
   </div>
 </section>
 
 <!-- CTA -->
 <section id="cta">
-  <div class="cta-bg-text">PULSEX</div>
-  <div class="cta-inner">
-    <h2 class="cta-title sr">
-      <span class="outline">Know</span><br>
-      <span class="solid">Your</span><br>
-      <span class="outline">Body.</span>
-    </h2>
-    <p class="cta-sub sr">Free shipping worldwide · 30-day returns · 2-year warranty</p>
-    <a href="#pricing" class="cta-btn sr">Get PulseX Now →</a>
+  <div class="cta-title">
+    <span class="o">Know</span><br>
+    <span class="s">Your</span><br>
+    <span class="o">Body.</span>
   </div>
+  <p class="cta-sub">Free shipping · 30-day returns · 2-year warranty</p>
+  <a href="#pricing" class="cta-btn">Get PulseX Now →</a>
 </section>
 
 <footer>
@@ -940,71 +878,262 @@ footer {
 </footer>
 
 <script>
+/*
+  =============================================
+  REGISTRAMOS EL PLUGIN
+  ScrollTrigger es un plugin de GSAP — hay que
+  registrarlo antes de usarlo. Sin esto no funciona.
+  =============================================
+*/
 gsap.registerPlugin(ScrollTrigger);
 
-// CURSOR
-const dotEl = document.getElementById('cur-dot-el');
-const ringEl = document.getElementById('cur-ring-el');
-const ring = document.getElementById('cur-ring');
-let mx=0,my=0,rx=0,ry=0;
+/*
+  =============================================
+  CURSOR CUSTOM
+  Dos elementos separados con velocidades distintas
+  crean el efecto de "retraso" que se ve premium.
+  
+  El punto sigue al ratón directamente (sin delay).
+  El anillo sigue con interpolación lerp (rx += (mx-rx)*0.1)
+  — cada frame avanza un 10% de la distancia restante.
+  Esto crea el suavizado natural.
+  =============================================
+*/
+const cdot = document.getElementById('cdot');
+const cring = document.getElementById('cring');
+let mx=0, my=0, rx=0, ry=0;
 
 document.addEventListener('mousemove', e => {
   mx = e.clientX; my = e.clientY;
-  dotEl.style.transform = `translate(${mx}px,${my}px)`;
+  cdot.style.left = mx + 'px';
+  cdot.style.top  = my + 'px';
 });
-function animRing(){
-  rx += (mx-rx)*0.1; ry += (my-ry)*0.1;
-  ringEl.style.transform = `translate(${rx}px,${ry}px)`;
-  requestAnimationFrame(animRing);
+
+function animCursor() {
+  // Lerp (Linear intERPolation) — suavizado
+  rx += (mx - rx) * 0.1;
+  ry += (my - ry) * 0.1;
+  cring.style.left = rx + 'px';
+  cring.style.top  = ry + 'px';
+  requestAnimationFrame(animCursor); // se llama 60 veces por segundo
 }
-animRing();
+animCursor();
 
-document.querySelectorAll('a,button').forEach(el=>{
-  el.addEventListener('mouseenter',()=>{ ring.style.width='56px'; ring.style.height='56px'; ring.style.borderColor='rgba(0,255,136,0.6)'; });
-  el.addEventListener('mouseleave',()=>{ ring.style.width='40px'; ring.style.height='40px'; ring.style.borderColor='rgba(255,255,255,0.5)'; });
+// Cursor se expande al pasar sobre links
+document.querySelectorAll('a').forEach(el => {
+  el.addEventListener('mouseenter', () => { cring.style.width = '52px'; cring.style.height = '52px'; });
+  el.addEventListener('mouseleave', () => { cring.style.width = '36px'; cring.style.height = '36px'; });
 });
 
-// HERO PARALLAX — el anillo sube y el texto se separa al hacer scroll
-gsap.to('#ring-wrap', {
-  yPercent: -30,
+/*
+  =============================================
+  ANIMACIÓN DE ENTRADA — HERO
+  
+  gsap.from() anima DESDE los valores que le dices
+  HASTA el estado actual del elemento en CSS.
+  
+  gsap.to() anima HACIA los valores que le dices.
+  
+  stagger: anima elementos en secuencia con delay entre ellos
+  delay: espera X segundos antes de empezar
+  =============================================
+*/
+const heroTL = gsap.timeline({ defaults: { ease: 'power3.out' } });
+heroTL
+  .from('.hero-eyebrow', { opacity: 0, y: 20, duration: 0.8 })
+  .from('.word-pulse',   { opacity: 0, y: 60, duration: 1  }, '-=0.4')
+  .from('.word-x',       { opacity: 0, y: 60, duration: 1  }, '-=0.7')
+  .from('#hero-ring',    { opacity: 0, scale: 0.8, duration: 1.2 }, '-=0.8')
+  .from('#scroll-hint',  { opacity: 0, y: 15, duration: 0.6 }, '-=0.2');
+
+/*
+  =============================================
+  PARALLAX EN EL HERO
+  
+  Al hacer scroll, el anillo sube más rápido que el texto.
+  Esto crea profundidad — parece 3D aunque es plano.
+  
+  scrub: true — conecta la animación al scroll en tiempo real.
+  Sin scrub, la animación se lanzaría al entrar en viewport.
+  Con scrub, el scroll ES el control de la animación.
+  =============================================
+*/
+gsap.to('#hero-ring', {
+  yPercent: -25, // sube un 25% de su altura al scrollear
+  ease: 'none',  // sin easing — movimiento lineal para parallax
+  scrollTrigger: {
+    trigger: '#hero',
+    start: 'top top',
+    end: 'bottom top',
+    scrub: true  // true = sincronizado con scroll, 1 = con 1s de suavizado
+  }
+});
+
+gsap.to('.word-pulse', {
+  yPercent: -10,
   ease: 'none',
   scrollTrigger: { trigger: '#hero', start: 'top top', end: 'bottom top', scrub: true }
 });
-gsap.to('#line-top', {
-  yPercent: -15,
-  ease: 'none',
-  scrollTrigger: { trigger: '#hero', start: 'top top', end: 'bottom top', scrub: true }
-});
-gsap.to('#line-bot', {
-  yPercent: 15,
+gsap.to('.word-x', {
+  yPercent: 10,
   ease: 'none',
   scrollTrigger: { trigger: '#hero', start: 'top top', end: 'bottom top', scrub: true }
 });
 
-// SCROLL REVEAL para todos los .sr
-gsap.utils.toArray('.sr').forEach((el, i) => {
-  gsap.fromTo(el,
-    { opacity: 0, y: 50 },
-    {
-      opacity: 1, y: 0,
-      duration: 0.8,
-      ease: 'power3.out',
-      scrollTrigger: {
-        trigger: el,
-        start: 'top 88%',
-        toggleActions: 'play none none none'
-      },
-      delay: (i % 3) * 0.1
+/*
+  =============================================
+  SCROLL NARRATIVE — LA MAGIA PRINCIPAL
+  
+  Creamos un timeline maestro que GSAP conecta
+  al scroll de la sección .scene.
+  
+  pin: true — fija el elemento en pantalla
+  scrub: 1  — la animación sigue al scroll con 1s de lag
+  
+  El timeline define QUÉ pasa en qué PROGRESO del scroll.
+  Cuando el usuario llega al 25% del scroll de la escena,
+  aparece el primer panel. Al 50%, el segundo. Etc.
+  =============================================
+*/
+const sceneTL = gsap.timeline({
+  scrollTrigger: {
+    trigger: '.scene',    // qué elemento dispara
+    pin: true,            // fija .scene en pantalla
+    scrub: 1,             // conecta al scroll con suavizado
+    start: 'top top',     // empieza cuando el top del trigger llega al top del viewport
+    end: '+=200%',        // termina tras 200% de scroll extra (2 pantallas)
+  }
+});
+
+/*
+  El timeline se ejecuta en secuencia.
+  '<' significa "al mismo tiempo que el anterior"
+  '-=0.2' significa "0.2 unidades antes de que termine el anterior"
+  
+  Las unidades aquí son relativas al scroll, no a segundos.
+*/
+
+// BEAT 1 — Heart Rate (sensor pulso + panel izquierda)
+sceneTL
+  .to('#fp1', { opacity: 1, x: 0, duration: 0.3, ease: 'power2.out' }, 0)
+  .to('#fl1', { opacity: 1, scaleX: 1, duration: 0.2 }, 0.1)
+  // Iluminar sensor de pulso en el anillo
+  .to('#s1-pulse circle', { opacity: 1, stagger: 0.05, duration: 0.2 }, 0.2)
+  // Efecto glow pulsante en el anillo
+  .to('#scene-ring-1 circle:nth-child(2)', {
+    filter: 'drop-shadow(0 0 30px rgba(0,255,136,0.6))',
+    duration: 0.3
+  }, 0.2)
+
+// BEAT 2 — Fade out heart rate, fade in hydration
+  .to('#fp1', { opacity: 0, x: -30, duration: 0.2 }, 0.4)
+  .to('#s1-pulse circle', { opacity: 0, duration: 0.15 }, 0.4)
+  .to('#fp2', { opacity: 1, x: 0, duration: 0.3 }, 0.5)
+  .to('#fl2', { opacity: 1, duration: 0.2 }, 0.6)
+  .to('#s1-hydro circle', { opacity: 1, stagger: 0.05, duration: 0.2 }, 0.55)
+
+// BEAT 3 — Slope detection
+  .to('#fp2', { opacity: 0, x: 30, duration: 0.2 }, 0.75)
+  .to('#s1-hydro circle', { opacity: 0, duration: 0.15 }, 0.75)
+  // Anillo rota levemente — simula detección de pendiente
+  .to('#scene-ring-1', { rotation: 12, transformOrigin: 'center', duration: 0.4 }, 0.8)
+  .to('#fp3', { opacity: 1, x: 0, duration: 0.3 }, 0.82)
+  .to('#fl3', { opacity: 1, duration: 0.2 }, 0.88)
+  .to('#s1-baro rect', { opacity: 1, stagger: 0.1, duration: 0.2 }, 0.85)
+
+// BEAT 4 — Recovery (todos los sensores encendidos)
+  .to('#fp3', { opacity: 0, x: -30, duration: 0.2 }, 1.1)
+  .to('#s1-baro rect', { opacity: 0, duration: 0.15 }, 1.1)
+  .to('#scene-ring-1', { rotation: 0, duration: 0.4 }, 1.1) // vuelve a neutral
+  .to('#fp4', { opacity: 1, x: 0, duration: 0.3 }, 1.25)
+  .to('#fl4', { opacity: 1, duration: 0.2 }, 1.35)
+  // Todos los sensores juntos
+  .to('#s1-pulse circle, #s1-hydro circle, #s1-temp circle, #s1-baro rect', {
+    opacity: 1, stagger: 0.03, duration: 0.15
+  }, 1.3);
+
+/*
+  Inicializamos las posiciones de entrada de los paneles.
+  Empiezan desplazados (x: ±60) e invisibles.
+  GSAP los anima a x:0, opacity:1 en el timeline.
+*/
+gsap.set('#fp1', { x: -60, opacity: 0 });
+gsap.set('#fp2', { x:  60, opacity: 0 });
+gsap.set('#fp3', { x: -60, opacity: 0 });
+gsap.set('#fp4', { x:  60, opacity: 0 });
+gsap.set('#fl1, #fl2, #fl3, #fl4', { scaleX: 0, transformOrigin: 'left' });
+
+/*
+  =============================================
+  SCROLL REVEAL PARA SPECS Y PRICING
+  
+  IntersectionObserver es la alternativa nativa
+  del navegador a ScrollTrigger para casos simples.
+  Más ligero pero menos control.
+  Aquí usamos ScrollTrigger para consistencia.
+  =============================================
+*/
+gsap.utils.toArray('.spec-row, .card, .pricing-header, .specs-title, .specs-label').forEach((el, i) => {
+  gsap.from(el, {
+    opacity: 0, y: 40,
+    duration: 0.7,
+    ease: 'power3.out',
+    delay: i * 0.05,
+    scrollTrigger: {
+      trigger: el,
+      start: 'top 88%',
+      toggleActions: 'play none none none' // play al entrar, nada al salir
     }
-  );
+  });
 });
 
-// HERO entrada inicial
-gsap.from('#hero-text', { opacity: 0, scale: 1.05, duration: 1.2, ease: 'power3.out', delay: 0.2 });
-gsap.from('#ring-wrap', { opacity: 0, scale: 0.85, duration: 1.4, ease: 'power3.out', delay: 0.4 });
-gsap.from('.hero-info', { opacity: 0, x: -30, duration: 0.8, ease: 'power3.out', delay: 0.8 });
-gsap.from('.hero-price', { opacity: 0, x: 30, duration: 0.8, ease: 'power3.out', delay: 0.8 });
-gsap.from('.scroll-hint', { opacity: 0, y: 20, duration: 0.8, ease: 'power3.out', delay: 1.2 });
+gsap.from('.cta-title, .cta-sub, .cta-btn', {
+  opacity: 0, y: 60,
+  duration: 0.9,
+  stagger: 0.15,
+  ease: 'power3.out',
+  scrollTrigger: { trigger: '#cta', start: 'top 80%' }
+});
+
+/*
+  =============================================
+  PROGRESS DOTS
+  
+  Actualizamos los puntos de navegación lateral
+  basándonos en qué sección está visible.
+  ScrollTrigger.create con onEnter/onLeave
+  nos permite ejecutar funciones cuando
+  el usuario entra o sale de cada sección.
+  =============================================
+*/
+const sections = ['hero', 'scene1', 'specs', 'pricing', 'cta'];
+const dots = document.querySelectorAll('.pdot');
+
+sections.forEach((id, i) => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  ScrollTrigger.create({
+    trigger: el,
+    start: 'top center',
+    end: 'bottom center',
+    onEnter: () => {
+      dots.forEach(d => d.classList.remove('active'));
+      if (dots[i]) dots[i].classList.add('active');
+    },
+    onEnterBack: () => {
+      dots.forEach(d => d.classList.remove('active'));
+      if (dots[i]) dots[i].classList.add('active');
+    }
+  });
+});
+
+// Click en dots — scroll a la sección
+dots.forEach((dot, i) => {
+  dot.addEventListener('click', () => {
+    const id = sections[i];
+    if (id) document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+  });
+});
 </script>
 </body>
 </html>
