@@ -15,6 +15,11 @@
 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<!--
+  LENIS — librería de scroll suavizado
+  La cargamos después de GSAP porque necesita que GSAP esté disponible
+-->
+<script src="https://unpkg.com/lenis@1.1.13/dist/lenis.min.js"></script>
 <script src="https://unpkg.com/lenis@1.1.14/dist/lenis.min.js"></script>
 
 <style>
@@ -887,6 +892,34 @@ footer {
   =============================================
 */
 gsap.registerPlugin(ScrollTrigger);
+
+/*
+  =============================================
+  LENIS — SCROLL SUAVIZADO
+  
+  Estas 4 líneas reemplazan el scroll nativo
+  del navegador por uno suavizado con inercia.
+  
+  Hay que inicializarlo ANTES que cualquier
+  ScrollTrigger para que funcione correctamente.
+  =============================================
+*/
+const lenis = new Lenis({
+  duration: 1.2,        // duración del suavizado — más alto = más lento y suave
+  easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)), // curva de desaceleración
+  smoothWheel: true,    // suaviza la rueda del ratón
+})
+
+// Cuando Lenis scrollea, le dice a ScrollTrigger que recalcule posiciones
+lenis.on('scroll', ScrollTrigger.update)
+
+// GSAP controla el timing de Lenis — ambos sincronizados
+gsap.ticker.add((time) => {
+  lenis.raf(time * 1000)
+})
+
+// Sin compensación de tiempo perdido — evita saltos bruscos
+gsap.ticker.lagSmoothing(0)
 
 /*
   =============================================
