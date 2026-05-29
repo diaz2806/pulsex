@@ -13,14 +13,786 @@
   2. ScrollTrigger — plugin de GSAP que conecta animaciones al scroll
   Vienen de cdnjs, que es un CDN gratuito y de confianza
 -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js">
+/*
+  =============================================
+  HOTSPOTS INTERACTIVOS
+  
+  Datos de cada sensor — objeto JS con toda
+  la información que mostrará la tarjeta.
+  Separar datos de lógica es buena práctica.
+  =============================================
+*/
+const sensorData = {
+  pulse: {
+    name: 'PPG Sensor',
+    title: 'Heart Rate',
+    desc: 'Optical photoplethysmography tracks blood volume changes 24/7. Detects anomalies and sends alerts in real time.',
+    val: '62', unit: 'bpm',
+    color: '#00ff88',
+    svgTargets: '#ir-pulse circle', // qué elementos del SVG iluminar
+  },
+  hydro: {
+    name: 'BIA Sensor',
+    title: 'Hydration',
+    desc: 'Bioimpedance analysis estimates cellular hydration levels. Know before you feel thirsty.',
+    val: '87', unit: '% optimal',
+    color: '#00aaff',
+    svgTargets: '#ir-hydro circle',
+  },
+  temp: {
+    name: 'NTC Sensor',
+    title: 'Temperature',
+    desc: 'Skin temperature variations reveal stress, illness onset, and ovulation cycles with 0.1°C precision.',
+    val: '36.6', unit: '°C',
+    color: '#ff6644',
+    svgTargets: '#ir-temp circle',
+  },
+  baro: {
+    name: 'Barometer',
+    title: 'Slope & Altitude',
+    desc: 'Barometric pressure fused with accelerometer data detects incline grade and altitude changes for trail runners.',
+    val: '+340', unit: 'm elevation',
+    color: '#aa88ff',
+    svgTargets: '#ir-baro rect',
+  },
+  hrv: {
+    name: 'HRV Monitor',
+    title: 'Recovery',
+    desc: 'Heart Rate Variability measured overnight. Combined with sleep data gives you a daily recovery score.',
+    val: '68', unit: 'ms HRV',
+    color: '#ffcc00',
+    svgTargets: '#ir-hrv path',
+  }
+}
+
+/*
+  Estado de la sección interactiva.
+  Guardamos qué sensor está activo y cuáles
+  han sido explorados — en un objeto JS simple.
+*/
+const interactiveState = {
+  active: null,       // sensor actualmente seleccionado
+  explored: new Set() // Set — como un array pero sin duplicados
+}
+
+/*
+  Función principal — se ejecuta cuando el usuario
+  hace clic en un hotspot.
+  
+  Recibe el nombre del sensor (string: 'pulse', 'hydro'...)
+  y gestiona todo: iluminar SVG, mostrar tarjeta, actualizar progreso.
+*/
+function activateSensor(sensorKey) {
+  const data = sensorData[sensorKey]
+  const card = document.getElementById('info-card')
+
+  // 1. Si había un sensor activo antes, apagarlo
+  if (interactiveState.active && interactiveState.active !== sensorKey) {
+    const prev = sensorData[interactiveState.active]
+    // Apagar sensores SVG anteriores
+    gsap.to(prev.svgTargets, { opacity: 0, duration: 0.3 })
+    // Quitar clase active del hotspot anterior
+    document.querySelector(`.hs-${interactiveState.active}`).classList.remove('active')
+  }
+
+  // 2. Actualizar estado
+  interactiveState.active = sensorKey
+  interactiveState.explored.add(sensorKey)
+
+  // 3. Activar hotspot clicado
+  document.querySelector(`.hs-${sensorKey}`).classList.add('active')
+
+  // 4. Iluminar sensores en el SVG con GSAP
+  gsap.to(data.svgTargets, {
+    opacity: 1,
+    duration: 0.4,
+    stagger: 0.08, // los círculos concéntricos se encienden uno a uno
+    ease: 'power2.out'
+  })
+
+  // 5. Glow del anillo — cambia según el color del sensor
+  gsap.to('#ir-svg', {
+    filter: `drop-shadow(0 0 60px ${data.color}44)`,
+    duration: 0.5
+  })
+
+  // 6. Actualizar contenido de la tarjeta
+  //    Primero fade out, luego cambiar texto, luego fade in
+  gsap.to(card, {
+    opacity: 0, x: 10, duration: 0.2,
+    onComplete: () => {
+      // Cambiar contenido mientras está invisible
+      document.getElementById('ic-name').textContent  = data.name
+      document.getElementById('ic-title').textContent = data.title
+      document.getElementById('ic-desc').textContent  = data.desc
+      document.getElementById('ic-val').textContent   = data.val
+      document.getElementById('ic-unit').textContent  = data.unit
+      card.style.setProperty('--card-color', data.color)
+      document.getElementById('ic-name').style.color  = data.color
+
+      // Fade in con nueva información
+      gsap.to(card, {
+        opacity: 1, x: 0, duration: 0.4,
+        ease: 'power2.out',
+        pointerEvents: 'auto'
+      })
+    }
+  })
+
+  // 7. Actualizar progreso visual
+  updateProgress()
+}
+
+function updateProgress() {
+  const pips = document.querySelectorAll('.progress-pip')
+  const explored = Array.from(interactiveState.explored)
+
+  // Colorear los pips según cuántos sensores has tocado
+  pips.forEach((pip, i) => {
+    if (i < explored.length) pip.classList.add('done')
+  })
+
+  // Si has tocado todos — mostrar mensaje final
+  if (interactiveState.explored.size === 5) {
+    gsap.to('#explore-progress', { opacity: 0, duration: 0.3 })
+    gsap.to('#all-explored', {
+      opacity: 1, duration: 0.6, ease: 'power2.out',
+      pointerEvents: 'auto'
+    })
+    // El anillo brilla con todos los sensores encendidos
+    gsap.to('#ir-inner-ring', { opacity: 0.6, duration: 0.5 })
+  }
+}
+
+/*
+  Añadir el event listener a cada hotspot.
+  
+  querySelectorAll devuelve todos los elementos
+  con clase .hotspot. forEach itera sobre ellos.
+  
+  data-sensor es un atributo HTML personalizado
+  que guardamos en el HTML para saber qué sensor es cada hotspot.
+  Se accede con dataset.sensor en JavaScript.
+*/
+document.querySelectorAll('.hotspot').forEach(hotspot => {
+  hotspot.addEventListener('click', () => {
+    activateSensor(hotspot.dataset.sensor)
+  })
+})
+
+/*
+  Animación de entrada de la sección interactiva.
+  Cuando el usuario llega scrolleando, el anillo
+  y los hotspots aparecen con un efecto suave.
+*/
+gsap.from('#ring-interactive', {
+  opacity: 0, scale: 0.9, duration: 1,
+  ease: 'power3.out',
+  scrollTrigger: {
+    trigger: '#interactive',
+    start: 'top 70%',
+    toggleActions: 'play none none none'
+  }
+})
+
+gsap.from('.hotspot', {
+  opacity: 0, scale: 0, duration: 0.5,
+  stagger: 0.1, ease: 'back.out(1.7)',
+  scrollTrigger: {
+    trigger: '#interactive',
+    start: 'top 60%',
+    toggleActions: 'play none none none'
+  }
+})
+
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js">
+/*
+  =============================================
+  HOTSPOTS INTERACTIVOS
+  
+  Datos de cada sensor — objeto JS con toda
+  la información que mostrará la tarjeta.
+  Separar datos de lógica es buena práctica.
+  =============================================
+*/
+const sensorData = {
+  pulse: {
+    name: 'PPG Sensor',
+    title: 'Heart Rate',
+    desc: 'Optical photoplethysmography tracks blood volume changes 24/7. Detects anomalies and sends alerts in real time.',
+    val: '62', unit: 'bpm',
+    color: '#00ff88',
+    svgTargets: '#ir-pulse circle', // qué elementos del SVG iluminar
+  },
+  hydro: {
+    name: 'BIA Sensor',
+    title: 'Hydration',
+    desc: 'Bioimpedance analysis estimates cellular hydration levels. Know before you feel thirsty.',
+    val: '87', unit: '% optimal',
+    color: '#00aaff',
+    svgTargets: '#ir-hydro circle',
+  },
+  temp: {
+    name: 'NTC Sensor',
+    title: 'Temperature',
+    desc: 'Skin temperature variations reveal stress, illness onset, and ovulation cycles with 0.1°C precision.',
+    val: '36.6', unit: '°C',
+    color: '#ff6644',
+    svgTargets: '#ir-temp circle',
+  },
+  baro: {
+    name: 'Barometer',
+    title: 'Slope & Altitude',
+    desc: 'Barometric pressure fused with accelerometer data detects incline grade and altitude changes for trail runners.',
+    val: '+340', unit: 'm elevation',
+    color: '#aa88ff',
+    svgTargets: '#ir-baro rect',
+  },
+  hrv: {
+    name: 'HRV Monitor',
+    title: 'Recovery',
+    desc: 'Heart Rate Variability measured overnight. Combined with sleep data gives you a daily recovery score.',
+    val: '68', unit: 'ms HRV',
+    color: '#ffcc00',
+    svgTargets: '#ir-hrv path',
+  }
+}
+
+/*
+  Estado de la sección interactiva.
+  Guardamos qué sensor está activo y cuáles
+  han sido explorados — en un objeto JS simple.
+*/
+const interactiveState = {
+  active: null,       // sensor actualmente seleccionado
+  explored: new Set() // Set — como un array pero sin duplicados
+}
+
+/*
+  Función principal — se ejecuta cuando el usuario
+  hace clic en un hotspot.
+  
+  Recibe el nombre del sensor (string: 'pulse', 'hydro'...)
+  y gestiona todo: iluminar SVG, mostrar tarjeta, actualizar progreso.
+*/
+function activateSensor(sensorKey) {
+  const data = sensorData[sensorKey]
+  const card = document.getElementById('info-card')
+
+  // 1. Si había un sensor activo antes, apagarlo
+  if (interactiveState.active && interactiveState.active !== sensorKey) {
+    const prev = sensorData[interactiveState.active]
+    // Apagar sensores SVG anteriores
+    gsap.to(prev.svgTargets, { opacity: 0, duration: 0.3 })
+    // Quitar clase active del hotspot anterior
+    document.querySelector(`.hs-${interactiveState.active}`).classList.remove('active')
+  }
+
+  // 2. Actualizar estado
+  interactiveState.active = sensorKey
+  interactiveState.explored.add(sensorKey)
+
+  // 3. Activar hotspot clicado
+  document.querySelector(`.hs-${sensorKey}`).classList.add('active')
+
+  // 4. Iluminar sensores en el SVG con GSAP
+  gsap.to(data.svgTargets, {
+    opacity: 1,
+    duration: 0.4,
+    stagger: 0.08, // los círculos concéntricos se encienden uno a uno
+    ease: 'power2.out'
+  })
+
+  // 5. Glow del anillo — cambia según el color del sensor
+  gsap.to('#ir-svg', {
+    filter: `drop-shadow(0 0 60px ${data.color}44)`,
+    duration: 0.5
+  })
+
+  // 6. Actualizar contenido de la tarjeta
+  //    Primero fade out, luego cambiar texto, luego fade in
+  gsap.to(card, {
+    opacity: 0, x: 10, duration: 0.2,
+    onComplete: () => {
+      // Cambiar contenido mientras está invisible
+      document.getElementById('ic-name').textContent  = data.name
+      document.getElementById('ic-title').textContent = data.title
+      document.getElementById('ic-desc').textContent  = data.desc
+      document.getElementById('ic-val').textContent   = data.val
+      document.getElementById('ic-unit').textContent  = data.unit
+      card.style.setProperty('--card-color', data.color)
+      document.getElementById('ic-name').style.color  = data.color
+
+      // Fade in con nueva información
+      gsap.to(card, {
+        opacity: 1, x: 0, duration: 0.4,
+        ease: 'power2.out',
+        pointerEvents: 'auto'
+      })
+    }
+  })
+
+  // 7. Actualizar progreso visual
+  updateProgress()
+}
+
+function updateProgress() {
+  const pips = document.querySelectorAll('.progress-pip')
+  const explored = Array.from(interactiveState.explored)
+
+  // Colorear los pips según cuántos sensores has tocado
+  pips.forEach((pip, i) => {
+    if (i < explored.length) pip.classList.add('done')
+  })
+
+  // Si has tocado todos — mostrar mensaje final
+  if (interactiveState.explored.size === 5) {
+    gsap.to('#explore-progress', { opacity: 0, duration: 0.3 })
+    gsap.to('#all-explored', {
+      opacity: 1, duration: 0.6, ease: 'power2.out',
+      pointerEvents: 'auto'
+    })
+    // El anillo brilla con todos los sensores encendidos
+    gsap.to('#ir-inner-ring', { opacity: 0.6, duration: 0.5 })
+  }
+}
+
+/*
+  Añadir el event listener a cada hotspot.
+  
+  querySelectorAll devuelve todos los elementos
+  con clase .hotspot. forEach itera sobre ellos.
+  
+  data-sensor es un atributo HTML personalizado
+  que guardamos en el HTML para saber qué sensor es cada hotspot.
+  Se accede con dataset.sensor en JavaScript.
+*/
+document.querySelectorAll('.hotspot').forEach(hotspot => {
+  hotspot.addEventListener('click', () => {
+    activateSensor(hotspot.dataset.sensor)
+  })
+})
+
+/*
+  Animación de entrada de la sección interactiva.
+  Cuando el usuario llega scrolleando, el anillo
+  y los hotspots aparecen con un efecto suave.
+*/
+gsap.from('#ring-interactive', {
+  opacity: 0, scale: 0.9, duration: 1,
+  ease: 'power3.out',
+  scrollTrigger: {
+    trigger: '#interactive',
+    start: 'top 70%',
+    toggleActions: 'play none none none'
+  }
+})
+
+gsap.from('.hotspot', {
+  opacity: 0, scale: 0, duration: 0.5,
+  stagger: 0.1, ease: 'back.out(1.7)',
+  scrollTrigger: {
+    trigger: '#interactive',
+    start: 'top 60%',
+    toggleActions: 'play none none none'
+  }
+})
+
+</script>
 <!--
   LENIS — librería de scroll suavizado
   La cargamos después de GSAP porque necesita que GSAP esté disponible
 -->
-<script src="https://unpkg.com/lenis@1.1.13/dist/lenis.min.js"></script>
-<script src="https://unpkg.com/lenis@1.1.14/dist/lenis.min.js"></script>
+<script src="https://unpkg.com/lenis@1.1.13/dist/lenis.min.js">
+/*
+  =============================================
+  HOTSPOTS INTERACTIVOS
+  
+  Datos de cada sensor — objeto JS con toda
+  la información que mostrará la tarjeta.
+  Separar datos de lógica es buena práctica.
+  =============================================
+*/
+const sensorData = {
+  pulse: {
+    name: 'PPG Sensor',
+    title: 'Heart Rate',
+    desc: 'Optical photoplethysmography tracks blood volume changes 24/7. Detects anomalies and sends alerts in real time.',
+    val: '62', unit: 'bpm',
+    color: '#00ff88',
+    svgTargets: '#ir-pulse circle', // qué elementos del SVG iluminar
+  },
+  hydro: {
+    name: 'BIA Sensor',
+    title: 'Hydration',
+    desc: 'Bioimpedance analysis estimates cellular hydration levels. Know before you feel thirsty.',
+    val: '87', unit: '% optimal',
+    color: '#00aaff',
+    svgTargets: '#ir-hydro circle',
+  },
+  temp: {
+    name: 'NTC Sensor',
+    title: 'Temperature',
+    desc: 'Skin temperature variations reveal stress, illness onset, and ovulation cycles with 0.1°C precision.',
+    val: '36.6', unit: '°C',
+    color: '#ff6644',
+    svgTargets: '#ir-temp circle',
+  },
+  baro: {
+    name: 'Barometer',
+    title: 'Slope & Altitude',
+    desc: 'Barometric pressure fused with accelerometer data detects incline grade and altitude changes for trail runners.',
+    val: '+340', unit: 'm elevation',
+    color: '#aa88ff',
+    svgTargets: '#ir-baro rect',
+  },
+  hrv: {
+    name: 'HRV Monitor',
+    title: 'Recovery',
+    desc: 'Heart Rate Variability measured overnight. Combined with sleep data gives you a daily recovery score.',
+    val: '68', unit: 'ms HRV',
+    color: '#ffcc00',
+    svgTargets: '#ir-hrv path',
+  }
+}
+
+/*
+  Estado de la sección interactiva.
+  Guardamos qué sensor está activo y cuáles
+  han sido explorados — en un objeto JS simple.
+*/
+const interactiveState = {
+  active: null,       // sensor actualmente seleccionado
+  explored: new Set() // Set — como un array pero sin duplicados
+}
+
+/*
+  Función principal — se ejecuta cuando el usuario
+  hace clic en un hotspot.
+  
+  Recibe el nombre del sensor (string: 'pulse', 'hydro'...)
+  y gestiona todo: iluminar SVG, mostrar tarjeta, actualizar progreso.
+*/
+function activateSensor(sensorKey) {
+  const data = sensorData[sensorKey]
+  const card = document.getElementById('info-card')
+
+  // 1. Si había un sensor activo antes, apagarlo
+  if (interactiveState.active && interactiveState.active !== sensorKey) {
+    const prev = sensorData[interactiveState.active]
+    // Apagar sensores SVG anteriores
+    gsap.to(prev.svgTargets, { opacity: 0, duration: 0.3 })
+    // Quitar clase active del hotspot anterior
+    document.querySelector(`.hs-${interactiveState.active}`).classList.remove('active')
+  }
+
+  // 2. Actualizar estado
+  interactiveState.active = sensorKey
+  interactiveState.explored.add(sensorKey)
+
+  // 3. Activar hotspot clicado
+  document.querySelector(`.hs-${sensorKey}`).classList.add('active')
+
+  // 4. Iluminar sensores en el SVG con GSAP
+  gsap.to(data.svgTargets, {
+    opacity: 1,
+    duration: 0.4,
+    stagger: 0.08, // los círculos concéntricos se encienden uno a uno
+    ease: 'power2.out'
+  })
+
+  // 5. Glow del anillo — cambia según el color del sensor
+  gsap.to('#ir-svg', {
+    filter: `drop-shadow(0 0 60px ${data.color}44)`,
+    duration: 0.5
+  })
+
+  // 6. Actualizar contenido de la tarjeta
+  //    Primero fade out, luego cambiar texto, luego fade in
+  gsap.to(card, {
+    opacity: 0, x: 10, duration: 0.2,
+    onComplete: () => {
+      // Cambiar contenido mientras está invisible
+      document.getElementById('ic-name').textContent  = data.name
+      document.getElementById('ic-title').textContent = data.title
+      document.getElementById('ic-desc').textContent  = data.desc
+      document.getElementById('ic-val').textContent   = data.val
+      document.getElementById('ic-unit').textContent  = data.unit
+      card.style.setProperty('--card-color', data.color)
+      document.getElementById('ic-name').style.color  = data.color
+
+      // Fade in con nueva información
+      gsap.to(card, {
+        opacity: 1, x: 0, duration: 0.4,
+        ease: 'power2.out',
+        pointerEvents: 'auto'
+      })
+    }
+  })
+
+  // 7. Actualizar progreso visual
+  updateProgress()
+}
+
+function updateProgress() {
+  const pips = document.querySelectorAll('.progress-pip')
+  const explored = Array.from(interactiveState.explored)
+
+  // Colorear los pips según cuántos sensores has tocado
+  pips.forEach((pip, i) => {
+    if (i < explored.length) pip.classList.add('done')
+  })
+
+  // Si has tocado todos — mostrar mensaje final
+  if (interactiveState.explored.size === 5) {
+    gsap.to('#explore-progress', { opacity: 0, duration: 0.3 })
+    gsap.to('#all-explored', {
+      opacity: 1, duration: 0.6, ease: 'power2.out',
+      pointerEvents: 'auto'
+    })
+    // El anillo brilla con todos los sensores encendidos
+    gsap.to('#ir-inner-ring', { opacity: 0.6, duration: 0.5 })
+  }
+}
+
+/*
+  Añadir el event listener a cada hotspot.
+  
+  querySelectorAll devuelve todos los elementos
+  con clase .hotspot. forEach itera sobre ellos.
+  
+  data-sensor es un atributo HTML personalizado
+  que guardamos en el HTML para saber qué sensor es cada hotspot.
+  Se accede con dataset.sensor en JavaScript.
+*/
+document.querySelectorAll('.hotspot').forEach(hotspot => {
+  hotspot.addEventListener('click', () => {
+    activateSensor(hotspot.dataset.sensor)
+  })
+})
+
+/*
+  Animación de entrada de la sección interactiva.
+  Cuando el usuario llega scrolleando, el anillo
+  y los hotspots aparecen con un efecto suave.
+*/
+gsap.from('#ring-interactive', {
+  opacity: 0, scale: 0.9, duration: 1,
+  ease: 'power3.out',
+  scrollTrigger: {
+    trigger: '#interactive',
+    start: 'top 70%',
+    toggleActions: 'play none none none'
+  }
+})
+
+gsap.from('.hotspot', {
+  opacity: 0, scale: 0, duration: 0.5,
+  stagger: 0.1, ease: 'back.out(1.7)',
+  scrollTrigger: {
+    trigger: '#interactive',
+    start: 'top 60%',
+    toggleActions: 'play none none none'
+  }
+})
+
+</script>
+<script src="https://unpkg.com/lenis@1.1.14/dist/lenis.min.js">
+/*
+  =============================================
+  HOTSPOTS INTERACTIVOS
+  
+  Datos de cada sensor — objeto JS con toda
+  la información que mostrará la tarjeta.
+  Separar datos de lógica es buena práctica.
+  =============================================
+*/
+const sensorData = {
+  pulse: {
+    name: 'PPG Sensor',
+    title: 'Heart Rate',
+    desc: 'Optical photoplethysmography tracks blood volume changes 24/7. Detects anomalies and sends alerts in real time.',
+    val: '62', unit: 'bpm',
+    color: '#00ff88',
+    svgTargets: '#ir-pulse circle', // qué elementos del SVG iluminar
+  },
+  hydro: {
+    name: 'BIA Sensor',
+    title: 'Hydration',
+    desc: 'Bioimpedance analysis estimates cellular hydration levels. Know before you feel thirsty.',
+    val: '87', unit: '% optimal',
+    color: '#00aaff',
+    svgTargets: '#ir-hydro circle',
+  },
+  temp: {
+    name: 'NTC Sensor',
+    title: 'Temperature',
+    desc: 'Skin temperature variations reveal stress, illness onset, and ovulation cycles with 0.1°C precision.',
+    val: '36.6', unit: '°C',
+    color: '#ff6644',
+    svgTargets: '#ir-temp circle',
+  },
+  baro: {
+    name: 'Barometer',
+    title: 'Slope & Altitude',
+    desc: 'Barometric pressure fused with accelerometer data detects incline grade and altitude changes for trail runners.',
+    val: '+340', unit: 'm elevation',
+    color: '#aa88ff',
+    svgTargets: '#ir-baro rect',
+  },
+  hrv: {
+    name: 'HRV Monitor',
+    title: 'Recovery',
+    desc: 'Heart Rate Variability measured overnight. Combined with sleep data gives you a daily recovery score.',
+    val: '68', unit: 'ms HRV',
+    color: '#ffcc00',
+    svgTargets: '#ir-hrv path',
+  }
+}
+
+/*
+  Estado de la sección interactiva.
+  Guardamos qué sensor está activo y cuáles
+  han sido explorados — en un objeto JS simple.
+*/
+const interactiveState = {
+  active: null,       // sensor actualmente seleccionado
+  explored: new Set() // Set — como un array pero sin duplicados
+}
+
+/*
+  Función principal — se ejecuta cuando el usuario
+  hace clic en un hotspot.
+  
+  Recibe el nombre del sensor (string: 'pulse', 'hydro'...)
+  y gestiona todo: iluminar SVG, mostrar tarjeta, actualizar progreso.
+*/
+function activateSensor(sensorKey) {
+  const data = sensorData[sensorKey]
+  const card = document.getElementById('info-card')
+
+  // 1. Si había un sensor activo antes, apagarlo
+  if (interactiveState.active && interactiveState.active !== sensorKey) {
+    const prev = sensorData[interactiveState.active]
+    // Apagar sensores SVG anteriores
+    gsap.to(prev.svgTargets, { opacity: 0, duration: 0.3 })
+    // Quitar clase active del hotspot anterior
+    document.querySelector(`.hs-${interactiveState.active}`).classList.remove('active')
+  }
+
+  // 2. Actualizar estado
+  interactiveState.active = sensorKey
+  interactiveState.explored.add(sensorKey)
+
+  // 3. Activar hotspot clicado
+  document.querySelector(`.hs-${sensorKey}`).classList.add('active')
+
+  // 4. Iluminar sensores en el SVG con GSAP
+  gsap.to(data.svgTargets, {
+    opacity: 1,
+    duration: 0.4,
+    stagger: 0.08, // los círculos concéntricos se encienden uno a uno
+    ease: 'power2.out'
+  })
+
+  // 5. Glow del anillo — cambia según el color del sensor
+  gsap.to('#ir-svg', {
+    filter: `drop-shadow(0 0 60px ${data.color}44)`,
+    duration: 0.5
+  })
+
+  // 6. Actualizar contenido de la tarjeta
+  //    Primero fade out, luego cambiar texto, luego fade in
+  gsap.to(card, {
+    opacity: 0, x: 10, duration: 0.2,
+    onComplete: () => {
+      // Cambiar contenido mientras está invisible
+      document.getElementById('ic-name').textContent  = data.name
+      document.getElementById('ic-title').textContent = data.title
+      document.getElementById('ic-desc').textContent  = data.desc
+      document.getElementById('ic-val').textContent   = data.val
+      document.getElementById('ic-unit').textContent  = data.unit
+      card.style.setProperty('--card-color', data.color)
+      document.getElementById('ic-name').style.color  = data.color
+
+      // Fade in con nueva información
+      gsap.to(card, {
+        opacity: 1, x: 0, duration: 0.4,
+        ease: 'power2.out',
+        pointerEvents: 'auto'
+      })
+    }
+  })
+
+  // 7. Actualizar progreso visual
+  updateProgress()
+}
+
+function updateProgress() {
+  const pips = document.querySelectorAll('.progress-pip')
+  const explored = Array.from(interactiveState.explored)
+
+  // Colorear los pips según cuántos sensores has tocado
+  pips.forEach((pip, i) => {
+    if (i < explored.length) pip.classList.add('done')
+  })
+
+  // Si has tocado todos — mostrar mensaje final
+  if (interactiveState.explored.size === 5) {
+    gsap.to('#explore-progress', { opacity: 0, duration: 0.3 })
+    gsap.to('#all-explored', {
+      opacity: 1, duration: 0.6, ease: 'power2.out',
+      pointerEvents: 'auto'
+    })
+    // El anillo brilla con todos los sensores encendidos
+    gsap.to('#ir-inner-ring', { opacity: 0.6, duration: 0.5 })
+  }
+}
+
+/*
+  Añadir el event listener a cada hotspot.
+  
+  querySelectorAll devuelve todos los elementos
+  con clase .hotspot. forEach itera sobre ellos.
+  
+  data-sensor es un atributo HTML personalizado
+  que guardamos en el HTML para saber qué sensor es cada hotspot.
+  Se accede con dataset.sensor en JavaScript.
+*/
+document.querySelectorAll('.hotspot').forEach(hotspot => {
+  hotspot.addEventListener('click', () => {
+    activateSensor(hotspot.dataset.sensor)
+  })
+})
+
+/*
+  Animación de entrada de la sección interactiva.
+  Cuando el usuario llega scrolleando, el anillo
+  y los hotspots aparecen con un efecto suave.
+*/
+gsap.from('#ring-interactive', {
+  opacity: 0, scale: 0.9, duration: 1,
+  ease: 'power3.out',
+  scrollTrigger: {
+    trigger: '#interactive',
+    start: 'top 70%',
+    toggleActions: 'play none none none'
+  }
+})
+
+gsap.from('.hotspot', {
+  opacity: 0, scale: 0, duration: 0.5,
+  stagger: 0.1, ease: 'back.out(1.7)',
+  scrollTrigger: {
+    trigger: '#interactive',
+    start: 'top 60%',
+    toggleActions: 'play none none none'
+  }
+})
+
+</script>
 
 <style>
 /*
@@ -543,6 +1315,282 @@ footer {
   footer { flex-direction: column; gap: 1rem; padding: 2rem 1.5rem; text-align: center; }
   .foot-links { flex-wrap: wrap; justify-content: center; }
 }
+
+/* =============================================
+   SECCIÓN INTERACTIVA — HOTSPOTS
+   
+   Esta sección tiene height: 100vh — solo una
+   pantalla. No necesita más porque la interacción
+   no depende del scroll sino del clic del usuario.
+   ============================================= */
+#interactive {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  border-top: 1px solid var(--border);
+  background: var(--black2);
+  overflow: hidden;
+}
+
+/* Título de la sección */
+.interactive-label {
+  position: absolute;
+  top: 3rem; left: 50%;
+  transform: translateX(-50%);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem; color: var(--accent);
+  letter-spacing: 0.2em; text-transform: uppercase;
+  white-space: nowrap;
+  z-index: 10;
+}
+
+.interactive-title {
+  position: absolute;
+  top: 4.5rem; left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900; font-size: clamp(1.8rem, 3vw, 3rem);
+  letter-spacing: -0.02em; white-space: nowrap;
+  z-index: 10; text-align: center;
+}
+
+/* Contenedor del anillo interactivo */
+.ring-interactive {
+  position: relative;
+  width: clamp(280px, 38vw, 500px);
+  height: clamp(280px, 38vw, 500px);
+}
+
+.ring-interactive svg {
+  width: 100%; height: 100%;
+  filter: drop-shadow(0 0 60px rgba(0,255,136,0.15));
+  transition: filter 0.5s ease;
+}
+
+/* =============================================
+   HOTSPOTS — puntos clicables
+   
+   position: absolute los posiciona encima del anillo.
+   El % es relativo al .ring-interactive que es su padre.
+   
+   Cada hotspot tiene DOS elementos:
+   - .hs-dot: el punto sólido central
+   - ::before y ::after: los anillos que pulsan (CSS puro)
+   ============================================= */
+.hotspot {
+  position: absolute;
+  width: 20px; height: 20px;
+  cursor: pointer;
+  z-index: 10;
+  transform: translate(-50%, -50%); /* centra el punto en su posición */
+}
+
+/* Punto central sólido */
+.hs-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  transition: transform 0.2s, box-shadow 0.3s;
+}
+
+/* 
+  Anillo pulsante exterior — CSS animation infinite
+  Recuerda: esto no le cuesta nada al navegador
+  porque es CSS nativo, no JavaScript
+*/
+.hotspot::before {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%) scale(1);
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  opacity: 0.5;
+  animation: hotspotPulse 2s ease-in-out infinite;
+}
+
+/* Segundo anillo más grande con delay */
+.hotspot::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%) scale(1);
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  opacity: 0.25;
+  animation: hotspotPulse 2s ease-in-out infinite 0.5s; /* 0.5s de delay */
+}
+
+@keyframes hotspotPulse {
+  0%   { transform: translate(-50%, -50%) scale(1);   opacity: 0.5; }
+  100% { transform: translate(-50%, -50%) scale(2.8); opacity: 0; }
+}
+
+/* Colores por sensor — cada uno tiene su identidad */
+.hs-pulse  .hs-dot { background: #00ff88; box-shadow: 0 0 10px rgba(0,255,136,0.6); }
+.hs-pulse::before,
+.hs-pulse::after   { background: #00ff88; }
+
+.hs-hydro  .hs-dot { background: #00aaff; box-shadow: 0 0 10px rgba(0,170,255,0.6); }
+.hs-hydro::before,
+.hs-hydro::after   { background: #00aaff; }
+
+.hs-temp   .hs-dot { background: #ff6644; box-shadow: 0 0 10px rgba(255,102,68,0.6); }
+.hs-temp::before,
+.hs-temp::after    { background: #ff6644; }
+
+.hs-baro   .hs-dot { background: #aa88ff; box-shadow: 0 0 10px rgba(170,136,255,0.6); }
+.hs-baro::before,
+.hs-baro::after    { background: #aa88ff; }
+
+.hs-hrv    .hs-dot { background: #ffcc00; box-shadow: 0 0 10px rgba(255,204,0,0.6); }
+.hs-hrv::before,
+.hs-hrv::after     { background: #ffcc00; }
+
+/* Posiciones de cada hotspot sobre el anillo */
+.hs-pulse { top: 78%; left: 50%; }   /* sensor abajo — donde está el LED */
+.hs-hydro { top: 72%; left: 28%; }   /* izquierda abajo */
+.hs-temp  { top: 72%; left: 72%; }   /* derecha abajo */
+.hs-baro  { top: 18%; left: 50%; }   /* arriba — barómetro */
+.hs-hrv   { top: 50%; left: 88%; }   /* derecha — HRV lateral */
+
+/* Estado activo — cuando está seleccionado */
+.hotspot.active .hs-dot {
+  transform: translate(-50%, -50%) scale(1.4);
+}
+
+/* =============================================
+   TARJETA DE INFORMACIÓN
+   
+   Empieza invisible y fuera de posición.
+   GSAP la muestra al hacer clic en un hotspot.
+   ============================================= */
+.info-card {
+  position: absolute;
+  right: 5%; top: 50%;
+  transform: translateY(-50%);
+  width: clamp(220px, 25vw, 300px);
+  background: var(--black);
+  border: 1px solid var(--border);
+  padding: 2rem;
+  opacity: 0; /* GSAP controla esto */
+  pointer-events: none;
+  z-index: 20;
+}
+
+/* Línea de color en el top de la tarjeta — cambia según el sensor */
+.info-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 2px;
+  background: var(--card-color, var(--accent));
+  transition: background 0.3s;
+}
+
+.card-sensor-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem; letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 0.75rem;
+}
+
+.card-sensor-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900; font-size: 1.8rem;
+  line-height: 0.95; letter-spacing: -0.02em;
+  margin-bottom: 1rem;
+}
+
+.card-sensor-desc {
+  font-size: 0.8rem; color: rgba(255,255,255,0.45);
+  font-weight: 300; line-height: 1.8;
+}
+
+.card-sensor-value {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900; font-size: 2rem;
+  letter-spacing: -0.02em;
+}
+
+.card-sensor-unit {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem; color: var(--muted);
+  letter-spacing: 0.1em; margin-left: 0.25rem;
+}
+
+/* =============================================
+   PROGRESO — cuántos hotspots has tocado
+   ============================================= */
+.explore-progress {
+  position: absolute;
+  bottom: 3rem; left: 50%;
+  transform: translateX(-50%);
+  display: flex; flex-direction: column;
+  align-items: center; gap: 0.75rem;
+  z-index: 10;
+}
+
+.progress-track {
+  display: flex; gap: 0.5rem;
+}
+
+.progress-pip {
+  width: 24px; height: 2px;
+  background: var(--border);
+  transition: background 0.3s, width 0.3s;
+}
+.progress-pip.done { background: var(--accent); }
+
+.explore-hint {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem; color: var(--muted);
+  letter-spacing: 0.15em; text-transform: uppercase;
+  transition: opacity 0.3s;
+}
+
+/* CTA que aparece cuando tocas todos los puntos */
+.all-explored {
+  position: absolute;
+  bottom: 3rem; left: 50%;
+  transform: translateX(-50%);
+  opacity: 0; /* GSAP lo muestra */
+  pointer-events: none;
+  text-align: center;
+  z-index: 10;
+  white-space: nowrap;
+}
+
+.all-explored-text {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700; font-size: 1rem;
+  letter-spacing: 0.05em; color: var(--accent);
+  margin-bottom: 0.5rem;
+}
+
+.all-explored-sub {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem; color: var(--muted);
+  letter-spacing: 0.1em;
+}
+
+/* Mobile — en móvil la tarjeta va abajo */
+@media (max-width: 768px) {
+  .info-card {
+    right: auto; top: auto;
+    bottom: 7rem; left: 50%;
+    transform: translateX(-50%);
+    width: 85vw;
+  }
+  .interactive-title { font-size: 1.4rem; top: 5rem; }
+  .ring-interactive { width: 75vw; height: 75vw; }
+}
 </style>
 </head>
 <body>
@@ -757,6 +1805,113 @@ footer {
 
   </div>
 </div>
+
+
+<!-- =============================================
+     SECCIÓN INTERACTIVA — HOTSPOTS
+     
+     Esta sección NO es un scroll narrative.
+     Es altura fija (100vh) con interacción por clic.
+     El anillo está en el centro y los hotspots
+     flotando encima posicionados con %.
+     ============================================= -->
+<section id="interactive">
+
+  <p class="interactive-label">● Explore the sensors</p>
+  <h2 class="interactive-title">Touch every part.</h2>
+
+  <div class="ring-interactive" id="ring-interactive">
+
+    <!-- SVG del anillo — mismos IDs que antes para iluminar sensores -->
+    <svg id="ir-svg" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="irg" cx="38%" cy="32%" r="68%">
+          <stop offset="0%" stop-color="#28283a"/>
+          <stop offset="45%" stop-color="#0e0e1a"/>
+          <stop offset="100%" stop-color="#040408"/>
+        </radialGradient>
+        <linearGradient id="ieg" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#505065"/>
+          <stop offset="28%" stop-color="#00ff88" stop-opacity="0.7"/>
+          <stop offset="58%" stop-color="#1a1a28"/>
+          <stop offset="100%" stop-color="#383850"/>
+        </linearGradient>
+      </defs>
+      <ellipse cx="200" cy="215" rx="135" ry="28" fill="rgba(0,0,0,0.55)"/>
+      <circle cx="200" cy="196" r="136" fill="url(#irg)" stroke="url(#ieg)" stroke-width="1.5"/>
+      <circle cx="200" cy="196" r="89" fill="#040408"/>
+      <circle cx="200" cy="196" r="89" fill="none" stroke="#00ff88" stroke-width="0.6" opacity="0.15" id="ir-inner-ring"/>
+      <ellipse cx="174" cy="140" rx="52" ry="18" fill="white" opacity="0.04" transform="rotate(-20 174 140)"/>
+      <!-- Sensores — todos apagados al inicio -->
+      <g id="ir-pulse">
+        <circle cx="200" cy="292" r="14" fill="#00ff88" opacity="0"/>
+        <circle cx="200" cy="292" r="8"  fill="#00ff88" opacity="0"/>
+        <circle cx="200" cy="292" r="3"  fill="#aaffdd" opacity="0"/>
+      </g>
+      <g id="ir-hydro">
+        <circle cx="160" cy="278" r="10" fill="#00aaff" opacity="0"/>
+        <circle cx="160" cy="278" r="5"  fill="#88ddff" opacity="0"/>
+      </g>
+      <g id="ir-temp">
+        <circle cx="240" cy="278" r="10" fill="#ff6644" opacity="0"/>
+        <circle cx="240" cy="278" r="5"  fill="#ffaa88" opacity="0"/>
+      </g>
+      <g id="ir-baro">
+        <rect x="188" y="100" width="24" height="5" rx="2.5" fill="#aa88ff" opacity="0"/>
+        <rect x="193" y="92"  width="14" height="5" rx="2.5" fill="#aa88ff" opacity="0"/>
+      </g>
+      <g id="ir-hrv">
+        <!-- HRV — línea de pulso lateral derecha -->
+        <path d="M 310 196 L 322 196 L 328 180 L 334 212 L 340 188 L 346 196 L 358 196"
+          fill="none" stroke="#ffcc00" stroke-width="2" opacity="0" stroke-linecap="round"/>
+      </g>
+      <text x="200" y="203" text-anchor="middle" fill="rgba(255,255,255,0.05)"
+        font-family="'Barlow Condensed',sans-serif" font-weight="900" font-size="17" letter-spacing="4">PULSEX</text>
+    </svg>
+
+    <!--
+      HOTSPOTS — posicionados con % encima del anillo
+      Cada uno tiene clase específica para su color
+      y data-sensor para que JavaScript sepa cuál es
+    -->
+    <div class="hotspot hs-pulse"  data-sensor="pulse">  <div class="hs-dot"></div></div>
+    <div class="hotspot hs-hydro"  data-sensor="hydro">  <div class="hs-dot"></div></div>
+    <div class="hotspot hs-temp"   data-sensor="temp">   <div class="hs-dot"></div></div>
+    <div class="hotspot hs-baro"   data-sensor="baro">   <div class="hs-dot"></div></div>
+    <div class="hotspot hs-hrv"    data-sensor="hrv">    <div class="hs-dot"></div></div>
+
+  </div>
+
+  <!-- Tarjeta de información — una sola que cambia de contenido -->
+  <div class="info-card" id="info-card">
+    <div class="card-sensor-name"  id="ic-name">—</div>
+    <div class="card-sensor-title" id="ic-title">—</div>
+    <p   class="card-sensor-desc"  id="ic-desc">—</p>
+    <div class="card-sensor-value" id="ic-value">
+      <span id="ic-val">—</span>
+      <span class="card-sensor-unit" id="ic-unit"></span>
+    </div>
+  </div>
+
+  <!-- Progreso de exploración -->
+  <div class="explore-progress" id="explore-progress">
+    <div class="progress-track">
+      <div class="progress-pip" data-pip="0"></div>
+      <div class="progress-pip" data-pip="1"></div>
+      <div class="progress-pip" data-pip="2"></div>
+      <div class="progress-pip" data-pip="3"></div>
+      <div class="progress-pip" data-pip="4"></div>
+    </div>
+    <span class="explore-hint" id="explore-hint">tap a sensor to explore</span>
+  </div>
+
+  <!-- Aparece cuando has tocado todos los sensores -->
+  <div class="all-explored" id="all-explored">
+    <div class="all-explored-text">You know your ring.</div>
+    <div class="all-explored-sub">scroll to continue ↓</div>
+  </div>
+
+</section>
 
 <!-- SPECS -->
 <section id="specs">
@@ -1194,6 +2349,199 @@ dots.forEach((dot, i) => {
     if (id) document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
   });
 });
+
+/*
+  =============================================
+  HOTSPOTS INTERACTIVOS
+  
+  Datos de cada sensor — objeto JS con toda
+  la información que mostrará la tarjeta.
+  Separar datos de lógica es buena práctica.
+  =============================================
+*/
+const sensorData = {
+  pulse: {
+    name: 'PPG Sensor',
+    title: 'Heart Rate',
+    desc: 'Optical photoplethysmography tracks blood volume changes 24/7. Detects anomalies and sends alerts in real time.',
+    val: '62', unit: 'bpm',
+    color: '#00ff88',
+    svgTargets: '#ir-pulse circle', // qué elementos del SVG iluminar
+  },
+  hydro: {
+    name: 'BIA Sensor',
+    title: 'Hydration',
+    desc: 'Bioimpedance analysis estimates cellular hydration levels. Know before you feel thirsty.',
+    val: '87', unit: '% optimal',
+    color: '#00aaff',
+    svgTargets: '#ir-hydro circle',
+  },
+  temp: {
+    name: 'NTC Sensor',
+    title: 'Temperature',
+    desc: 'Skin temperature variations reveal stress, illness onset, and ovulation cycles with 0.1°C precision.',
+    val: '36.6', unit: '°C',
+    color: '#ff6644',
+    svgTargets: '#ir-temp circle',
+  },
+  baro: {
+    name: 'Barometer',
+    title: 'Slope & Altitude',
+    desc: 'Barometric pressure fused with accelerometer data detects incline grade and altitude changes for trail runners.',
+    val: '+340', unit: 'm elevation',
+    color: '#aa88ff',
+    svgTargets: '#ir-baro rect',
+  },
+  hrv: {
+    name: 'HRV Monitor',
+    title: 'Recovery',
+    desc: 'Heart Rate Variability measured overnight. Combined with sleep data gives you a daily recovery score.',
+    val: '68', unit: 'ms HRV',
+    color: '#ffcc00',
+    svgTargets: '#ir-hrv path',
+  }
+}
+
+/*
+  Estado de la sección interactiva.
+  Guardamos qué sensor está activo y cuáles
+  han sido explorados — en un objeto JS simple.
+*/
+const interactiveState = {
+  active: null,       // sensor actualmente seleccionado
+  explored: new Set() // Set — como un array pero sin duplicados
+}
+
+/*
+  Función principal — se ejecuta cuando el usuario
+  hace clic en un hotspot.
+  
+  Recibe el nombre del sensor (string: 'pulse', 'hydro'...)
+  y gestiona todo: iluminar SVG, mostrar tarjeta, actualizar progreso.
+*/
+function activateSensor(sensorKey) {
+  const data = sensorData[sensorKey]
+  const card = document.getElementById('info-card')
+
+  // 1. Si había un sensor activo antes, apagarlo
+  if (interactiveState.active && interactiveState.active !== sensorKey) {
+    const prev = sensorData[interactiveState.active]
+    // Apagar sensores SVG anteriores
+    gsap.to(prev.svgTargets, { opacity: 0, duration: 0.3 })
+    // Quitar clase active del hotspot anterior
+    document.querySelector(`.hs-${interactiveState.active}`).classList.remove('active')
+  }
+
+  // 2. Actualizar estado
+  interactiveState.active = sensorKey
+  interactiveState.explored.add(sensorKey)
+
+  // 3. Activar hotspot clicado
+  document.querySelector(`.hs-${sensorKey}`).classList.add('active')
+
+  // 4. Iluminar sensores en el SVG con GSAP
+  gsap.to(data.svgTargets, {
+    opacity: 1,
+    duration: 0.4,
+    stagger: 0.08, // los círculos concéntricos se encienden uno a uno
+    ease: 'power2.out'
+  })
+
+  // 5. Glow del anillo — cambia según el color del sensor
+  gsap.to('#ir-svg', {
+    filter: `drop-shadow(0 0 60px ${data.color}44)`,
+    duration: 0.5
+  })
+
+  // 6. Actualizar contenido de la tarjeta
+  //    Primero fade out, luego cambiar texto, luego fade in
+  gsap.to(card, {
+    opacity: 0, x: 10, duration: 0.2,
+    onComplete: () => {
+      // Cambiar contenido mientras está invisible
+      document.getElementById('ic-name').textContent  = data.name
+      document.getElementById('ic-title').textContent = data.title
+      document.getElementById('ic-desc').textContent  = data.desc
+      document.getElementById('ic-val').textContent   = data.val
+      document.getElementById('ic-unit').textContent  = data.unit
+      card.style.setProperty('--card-color', data.color)
+      document.getElementById('ic-name').style.color  = data.color
+
+      // Fade in con nueva información
+      gsap.to(card, {
+        opacity: 1, x: 0, duration: 0.4,
+        ease: 'power2.out',
+        pointerEvents: 'auto'
+      })
+    }
+  })
+
+  // 7. Actualizar progreso visual
+  updateProgress()
+}
+
+function updateProgress() {
+  const pips = document.querySelectorAll('.progress-pip')
+  const explored = Array.from(interactiveState.explored)
+
+  // Colorear los pips según cuántos sensores has tocado
+  pips.forEach((pip, i) => {
+    if (i < explored.length) pip.classList.add('done')
+  })
+
+  // Si has tocado todos — mostrar mensaje final
+  if (interactiveState.explored.size === 5) {
+    gsap.to('#explore-progress', { opacity: 0, duration: 0.3 })
+    gsap.to('#all-explored', {
+      opacity: 1, duration: 0.6, ease: 'power2.out',
+      pointerEvents: 'auto'
+    })
+    // El anillo brilla con todos los sensores encendidos
+    gsap.to('#ir-inner-ring', { opacity: 0.6, duration: 0.5 })
+  }
+}
+
+/*
+  Añadir el event listener a cada hotspot.
+  
+  querySelectorAll devuelve todos los elementos
+  con clase .hotspot. forEach itera sobre ellos.
+  
+  data-sensor es un atributo HTML personalizado
+  que guardamos en el HTML para saber qué sensor es cada hotspot.
+  Se accede con dataset.sensor en JavaScript.
+*/
+document.querySelectorAll('.hotspot').forEach(hotspot => {
+  hotspot.addEventListener('click', () => {
+    activateSensor(hotspot.dataset.sensor)
+  })
+})
+
+/*
+  Animación de entrada de la sección interactiva.
+  Cuando el usuario llega scrolleando, el anillo
+  y los hotspots aparecen con un efecto suave.
+*/
+gsap.from('#ring-interactive', {
+  opacity: 0, scale: 0.9, duration: 1,
+  ease: 'power3.out',
+  scrollTrigger: {
+    trigger: '#interactive',
+    start: 'top 70%',
+    toggleActions: 'play none none none'
+  }
+})
+
+gsap.from('.hotspot', {
+  opacity: 0, scale: 0, duration: 0.5,
+  stagger: 0.1, ease: 'back.out(1.7)',
+  scrollTrigger: {
+    trigger: '#interactive',
+    start: 'top 60%',
+    toggleActions: 'play none none none'
+  }
+})
+
 </script>
 </body>
 </html>
